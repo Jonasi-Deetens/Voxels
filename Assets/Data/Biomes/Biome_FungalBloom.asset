@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f2000000000000020000000000000003, type: 3}
+  m_Name: Biome_FungalBloom
+  m_EditorClassIdentifier: Voxels.World::Voxels.World.BiomeDefinition
+  surfaceBlock: {fileID: 11400000, guid: 9ac2961c8160f714984ad39b17b77040, type: 2}
+  subsoilBlock: {fileID: 11400000, guid: d1000000000000000000000000000002, type: 2}
+  underwaterSurfaceBlock: {fileID: 11400000, guid: d1000000000000000000000000000007, type: 2}
+  waterBlock: {fileID: 11400000, guid: d1000000000000000000000000000006, type: 2}
+  dirtDepth: 4
+  coreBlock: {fileID: 11400000, guid: 2c0b2d456d850fb478c070104f1bfb0c, type: 2}
+  mantleBlock: {fileID: 11400000, guid: aea2756376817b641a6dc10e2f28fc4d, type: 2}
+  bedrockBlock: {fileID: 11400000, guid: d1000000000000000000000000000003, type: 2}
+  continentalFrequency: 0.45
+  continentalThreshold: 0.35
+  continentalBlendWidth: 0.3
+  oceanDepthMin: 6
+  oceanDepthMax: 14
+  terrainTypeFrequency: 0.75
+  plainsUpperThreshold: -0.1
+  hillsUpperThreshold: 0.25
+  plainsRoughness: 2
+  hillsAmplitude: 6
+  mountainAmplitude: 18
+  mountainFrequency: 1.8
+  detailAmplitude: 4
+  detailFrequency: 5.5
+  ridgeFrequency: 3.2
+  ridgeAmplitude: 6
+  caveFrequency: 2.5
+  caveThreshold: 0.62
+  caveMinLayerAboveCore: 6
+  caveMaxDepthBelowSurface: 5
+  alpineElevationThreshold: 14
+  spawnPreference: 0

@@ -1,0 +1,162 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3c4d5e6f7a8490123456789abcdef01, type: 3}
+  m_Name: BiomeCatalog_Default
+  m_EditorClassIdentifier: Voxels.World::Voxels.World.BiomeCatalog
+  terrainProfile: {fileID: 11400000, guid: 6b722c65e3ce03d4e8645410a755301f, type: 2}
+  fallbackBiome: {fileID: 11400000, guid: 6b722c65e3ce03d4e8645410a755301f, type: 2}
+  oceanBiome: {fileID: 11400000, guid: 5e35e70500fb5eb4986a8649259c9be9, type: 2}
+  alpineBiome: {fileID: 11400000, guid: 128886c164336db4bbff8f70889b6de1, type: 2}
+  rules:
+  - biome: {fileID: 11400000, guid: 5ccb5abb69b881345aeca765f5890d6f, type: 2}
+    priority: 25
+    minTemperature: -0.2
+    maxTemperature: 0.8
+    minHumidity: 0.45
+    maxHumidity: 1
+    minLeyLine: 0
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 40
+    maxCoastDistance: 2
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: e5382e11371cb1b4fa03c5f17ebbdb07, type: 2}
+    priority: 30
+    minTemperature: -1
+    maxTemperature: 0.15
+    minHumidity: 0
+    maxHumidity: 1
+    minLeyLine: 0.78
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: 26b1fa5db3ca00c4b84a61ef75bd900e, type: 2}
+    priority: 28
+    minTemperature: -0.3
+    maxTemperature: 0.8
+    minHumidity: 0.72
+    maxHumidity: 1
+    minLeyLine: 0.55
+    maxLeyLine: 0.88
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: e0119937f8dec924b92d0c954229718c, type: 2}
+    priority: 27
+    minTemperature: 0.35
+    maxTemperature: 1
+    minHumidity: 0
+    maxHumidity: 0.32
+    minLeyLine: 0.72
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: 9f1f1364702e1564e9a93f9bac5b72fb, type: 2}
+    priority: 20
+    minTemperature: 0.15
+    maxTemperature: 1
+    minHumidity: 0.78
+    maxHumidity: 1
+    minLeyLine: 0
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: 1eab6e80a4dd14f41a05b8dda684a115, type: 2}
+    priority: 18
+    minTemperature: 0.3
+    maxTemperature: 1
+    minHumidity: 0
+    maxHumidity: 0.3
+    minLeyLine: 0
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: 62df5289c2b8a4448ba9b05299035db8, type: 2}
+    priority: 16
+    minTemperature: -1
+    maxTemperature: 0.05
+    minHumidity: 0.45
+    maxHumidity: 1
+    minLeyLine: 0
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: 167790eb3dc47634ca6fdce94289bce1, type: 2}
+    priority: 14
+    minTemperature: -1
+    maxTemperature: 0.1
+    minHumidity: 0
+    maxHumidity: 0.48
+    minLeyLine: 0
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: 7955fcdac35ad8a48b7fb0af8a9f15d0, type: 2}
+    priority: 12
+    minTemperature: 0.2
+    maxTemperature: 0.85
+    minHumidity: 0.22
+    maxHumidity: 0.58
+    minLeyLine: 0
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: 40f805c56ec1aa44ebb5c99c6a6c2515, type: 2}
+    priority: 10
+    minTemperature: -0.2
+    maxTemperature: 0.55
+    minHumidity: 0.52
+    maxHumidity: 1
+    minLeyLine: 0
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1
+  - biome: {fileID: 11400000, guid: 6b722c65e3ce03d4e8645410a755301f, type: 2}
+    priority: 5
+    minTemperature: -0.25
+    maxTemperature: 0.5
+    minHumidity: 0.28
+    maxHumidity: 0.68
+    minLeyLine: 0
+    maxLeyLine: 1
+    minElevationAboveSea: 0
+    maxElevationAboveSea: 9999
+    maxCoastDistance: 9999
+    minCoastDistance: 0
+    requiresLand: 1

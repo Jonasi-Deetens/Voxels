@@ -1,0 +1,21 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Built from '6000.4/staging' branch; Version is '6000.4.9f1 (f7258d6eebbe) revision 16197005'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) Core' Language: 'en' Physical Memory: 32694 MB
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-jonas" at "2026-05-31T22:50:37.9639165Z"
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
+System  architecture: x64
+Process architecture: x64
+Date: 2026-05-31T22:50:37Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.4.9f1\Editor\Unity.exe
+-batchmode
+-nographics
+-quit
+-projectPath
+c:\Users\jonas\Desktop\Coding\Voxels
+-logFile
+c:\Users\jonas\Desktop\Coding\Voxels\unity-compile.log
+Successfully changed project path to: c:\Users\jonas\Desktop\Coding\Voxels
+C:/Users/jonas/Desktop/Coding/Voxels
+Exiting without the bug reporter. Application will terminate with return code 1

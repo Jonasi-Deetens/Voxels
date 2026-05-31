@@ -1,12 +1,17 @@
 using System;
+using System.Collections;
 using Unity.Mathematics;
 using Voxels.Core.Blocks;
 using Voxels.Core.Sphere;
+using Voxels.World;
+using Voxels.World.Climate;
 
 namespace Voxels.World.Generation
 {
     public sealed class PlanetLayerGenerator : IWorldGenerator
     {
+        public const int DefaultBatchSize = 4096;
+
         readonly PlanetSettings settings;
         readonly uint seed;
 
@@ -18,35 +23,128 @@ namespace Voxels.World.Generation
 
         public void Generate(PlanetWorld world)
         {
-            BiomeDefinition biome = settings.Biome;
-            if (biome == null)
-            {
-                throw new InvalidOperationException("PlanetSettings.Biome is not assigned.");
-            }
+            RunGeneration(world, DefaultBatchSize, null);
+        }
 
-            BiomeBlockIds blocks = BiomeBlockIds.FromBiome(biome);
-            IcosphereHexGrid grid = world.Grid;
-            PlanetColumnStorage storage = world.Columns;
+        public IEnumerator GenerateBatched(PlanetWorld world, int batchSize, Action<float, string> reportProgress)
+        {
+            int cellCount = world.Grid.CellCount;
+            batchSize = math.max(1, batchSize);
+
+            BiomeCatalog catalog = RequireCatalog();
+            BiomeDefinition terrainProfile = catalog.TerrainProfile;
+            BiomeBlockIds geologyBlocks = BiomeBlockIds.FromBiome(terrainProfile);
 
             int coreEnd = settings.CoreLayerCount;
             int mantleEnd = coreEnd + settings.MantleLayerCount;
             int crustTop = settings.CrustTopLayer;
             int seaLevel = settings.SeaLevelLayer;
 
-            for (int i = 0; i < grid.CellCount; i++)
+            IcosphereHexGrid grid = world.Grid;
+            PlanetColumnStorage storage = world.Columns;
+            PlanetBiomeMap biomeMap = world.BiomeMap;
+            int[] surfaceHeights = new int[cellCount];
+
+            reportProgress?.Invoke(0.02f, "Generating height map…");
+            for (int start = 0; start < cellCount; start += batchSize)
             {
-                ref readonly SphereHexCell cell = ref grid.GetCell(i);
-                BlockColumn column = storage.GetColumn(i);
+                int end = math.min(start + batchSize, cellCount);
+                for (int i = start; i < end; i++)
+                {
+                    SphereHexCell cell = grid.GetCell(i);
+                    surfaceHeights[i] = SampleSurfaceHeight(cell.Normal, terrainProfile, crustTop, seaLevel);
+                    storage.GetColumn(i).SetSurfaceHeight(surfaceHeights[i]);
+                }
 
-                int surfaceHeight = SampleSurfaceHeight(cell.Normal, biome, crustTop, seaLevel);
-                column.SetSurfaceHeight(surfaceHeight);
-
-                FillGeology(column, coreEnd, mantleEnd, crustTop, blocks.Core, blocks.Mantle, blocks.Bedrock);
-                FillTerrainColumn(column, crustTop, surfaceHeight, blocks.Bedrock);
-                CarveCaves(column, cell.Normal, biome, coreEnd, surfaceHeight);
-                ApplySurfaceBlocks(column, surfaceHeight, seaLevel, crustTop, biome.DirtDepth, blocks.Grass, blocks.Dirt, blocks.Sand, blocks.Bedrock);
-                FillWater(column, surfaceHeight, seaLevel, blocks.Water);
+                reportProgress?.Invoke(0.02f + 0.28f * end / cellCount, "Generating height map…");
+                yield return null;
             }
+
+            reportProgress?.Invoke(0.32f, "Computing climate…");
+            yield return null;
+
+            var coastField = new OceanDistanceField(grid, seaLevel, storage);
+            var climateSampler = new ClimateSampler(settings);
+            var biomeSelector = new BiomeSelector(catalog);
+            var climateSamples = new ClimateSample[cellCount];
+
+            for (int start = 0; start < cellCount; start += batchSize)
+            {
+                int end = math.min(start + batchSize, cellCount);
+                for (int i = start; i < end; i++)
+                {
+                    SphereHexCell cell = grid.GetCell(i);
+                    climateSamples[i] = climateSampler.Sample(
+                        in cell,
+                        surfaceHeights[i],
+                        seaLevel,
+                        crustTop,
+                        coastField);
+                    BiomeDefinition selected = biomeSelector.Select(climateSamples[i]);
+                    biomeMap.SetBiome(i, selected);
+                }
+
+                reportProgress?.Invoke(0.32f + 0.18f * end / cellCount, "Computing climate…");
+                yield return null;
+            }
+
+            reportProgress?.Invoke(0.52f, "Filling columns…");
+            for (int start = 0; start < cellCount; start += batchSize)
+            {
+                int end = math.min(start + batchSize, cellCount);
+                for (int i = start; i < end; i++)
+                {
+                    SphereHexCell cell = grid.GetCell(i);
+                    BlockColumn column = storage.GetColumn(i);
+                    int surfaceHeight = surfaceHeights[i];
+                    BiomeDefinition cellBiome = biomeMap.GetBiome(i) ?? terrainProfile;
+                    BiomeBlockIds blocks = BiomeBlockIds.FromBiome(cellBiome);
+
+                    FillGeology(column, coreEnd, mantleEnd, crustTop, geologyBlocks.Core, geologyBlocks.Mantle, geologyBlocks.Bedrock);
+                    FillTerrainColumn(column, crustTop, surfaceHeight, blocks.Bedrock);
+                    CarveCaves(column, cell.Normal, cellBiome, coreEnd, surfaceHeight);
+                    ApplySurfaceBlocks(
+                        column,
+                        surfaceHeight,
+                        seaLevel,
+                        crustTop,
+                        cellBiome.DirtDepth,
+                        blocks.Grass,
+                        blocks.Dirt,
+                        blocks.Sand,
+                        blocks.Bedrock);
+                    FillWater(column, surfaceHeight, seaLevel, blocks.Water);
+                }
+
+                reportProgress?.Invoke(0.52f + 0.38f * end / cellCount, "Filling columns…");
+                yield return null;
+            }
+
+            reportProgress?.Invoke(0.92f, "Terrain generation complete.");
+        }
+
+        void RunGeneration(PlanetWorld world, int batchSize, Action<float, string> reportProgress)
+        {
+            IEnumerator routine = GenerateBatched(world, batchSize, reportProgress);
+            while (routine.MoveNext())
+            {
+            }
+        }
+
+        BiomeCatalog RequireCatalog()
+        {
+            BiomeCatalog catalog = settings.BiomeCatalog;
+            if (catalog == null)
+            {
+                throw new InvalidOperationException("PlanetSettings.BiomeCatalog is not assigned.");
+            }
+
+            if (catalog.TerrainProfile == null)
+            {
+                throw new InvalidOperationException("BiomeCatalog.TerrainProfile is not assigned.");
+            }
+
+            return catalog;
         }
 
         int SampleSurfaceHeight(float3 normal, BiomeDefinition biome, int crustTop, int seaLevel)

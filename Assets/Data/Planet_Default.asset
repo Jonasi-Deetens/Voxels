@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Voxels.World::Voxels.World.PlanetSettings
   subdivisionLevel: 6
   seed: 42
-  biome: {fileID: 11400000, guid: d1000000000000000000000000000004, type: 2}
-  cellsPerChunk: 256
-  planetRadiusScale: 2
+  biomeCatalog: {fileID: 11400000, guid: c4d5e6f7a8490123456789abcdef1234, type: 2}
+  biome: {fileID: 11400000, guid: 6b722c65e3ce03d4e8645410a755301f, type: 2}
+  cellsPerChunk: 512
+  planetRadiusScale: 4
   blockSize: 1
   playerEyeHeight: 1.7
   playerHeight: 2
@@ -24,3 +25,7 @@ MonoBehaviour:
   mantleLayerCount: 96
   crustLayerCount: 56
   seaLevelOffsetFromCrust: 12
+  dayLengthSeconds: 900
+  axisTiltDegrees: 23.5
+  sunDistanceMultiplier: 50
+  sunAngularSize: 1.2

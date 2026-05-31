@@ -14,7 +14,13 @@ namespace Voxels.EditorTools
             if (GUILayout.Button("Regenerate Planet"))
             {
                 var bootstrap = (PlanetBootstrap)target;
-                bootstrap.BuildPlanet();
+                bootstrap.RegeneratePlanet();
+
+                if (!Application.isPlaying && bootstrap.gameObject.scene.IsValid())
+                {
+                    EditorUtility.SetDirty(bootstrap);
+                    UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bootstrap.gameObject.scene);
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-using Voxels.World;
+using System.Collections.Generic;
 
 namespace Voxels.World
 {
@@ -9,19 +9,36 @@ namespace Voxels.World
             var registry = new BlockRegistry();
             registry.RegisterRange(blockDefinitions);
 
-            if (settings?.Biome != null)
+            if (settings?.BiomeCatalog != null)
             {
-                BiomeDefinition biome = settings.Biome;
-                registry.Register(biome.SurfaceBlock);
-                registry.Register(biome.SubsoilBlock);
-                registry.Register(biome.UnderwaterSurfaceBlock);
-                registry.Register(biome.WaterBlock);
-                registry.Register(biome.CoreBlock);
-                registry.Register(biome.MantleBlock);
-                registry.Register(biome.BedrockBlock);
+                List<BiomeDefinition> biomes = settings.BiomeCatalog.GetAllBiomesList();
+                for (int i = 0; i < biomes.Count; i++)
+                {
+                    RegisterBiomeBlocks(registry, biomes[i]);
+                }
+            }
+            else if (settings?.Biome != null)
+            {
+                RegisterBiomeBlocks(registry, settings.Biome);
             }
 
             return registry;
+        }
+
+        static void RegisterBiomeBlocks(BlockRegistry registry, BiomeDefinition biome)
+        {
+            if (biome == null)
+            {
+                return;
+            }
+
+            registry.Register(biome.SurfaceBlock);
+            registry.Register(biome.SubsoilBlock);
+            registry.Register(biome.UnderwaterSurfaceBlock);
+            registry.Register(biome.WaterBlock);
+            registry.Register(biome.CoreBlock);
+            registry.Register(biome.MantleBlock);
+            registry.Register(biome.BedrockBlock);
         }
     }
 }

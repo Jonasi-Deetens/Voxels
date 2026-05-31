@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f2000000000000020000000000000003, type: 3}
-  m_Name: Biome_Grass
+  m_Name: Biome_Grassland
   m_EditorClassIdentifier: Voxels.World::Voxels.World.BiomeDefinition
   surfaceBlock: {fileID: 11400000, guid: d1000000000000000000000000000001, type: 2}
   subsoilBlock: {fileID: 11400000, guid: d1000000000000000000000000000002, type: 2}
@@ -40,3 +40,5 @@ MonoBehaviour:
   caveThreshold: 0.62
   caveMinLayerAboveCore: 6
   caveMaxDepthBelowSurface: 5
+  alpineElevationThreshold: 14
+  spawnPreference: 100

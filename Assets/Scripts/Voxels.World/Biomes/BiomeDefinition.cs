@@ -45,6 +45,10 @@ namespace Voxels.World
         [SerializeField] int caveMinLayerAboveCore = 6;
         [SerializeField] int caveMaxDepthBelowSurface = 5;
 
+        [Header("Climate / Spawn")]
+        [SerializeField] int alpineElevationThreshold = 14;
+        [SerializeField] int spawnPreference;
+
         public BlockDefinition SurfaceBlock => surfaceBlock;
         public BlockDefinition SubsoilBlock => subsoilBlock;
         public BlockDefinition UnderwaterSurfaceBlock => underwaterSurfaceBlock;
@@ -73,5 +77,7 @@ namespace Voxels.World
         public float CaveThreshold => caveThreshold;
         public int CaveMinLayerAboveCore => caveMinLayerAboveCore;
         public int CaveMaxDepthBelowSurface => caveMaxDepthBelowSurface;
+        public int AlpineElevationThreshold => alpineElevationThreshold;
+        public int SpawnPreference => spawnPreference;
     }
 }

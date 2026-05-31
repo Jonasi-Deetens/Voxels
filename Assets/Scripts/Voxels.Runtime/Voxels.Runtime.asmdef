@@ -5,7 +5,8 @@
         "Voxels.Core",
         "Voxels.World",
         "Voxels.Rendering",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.Mathematics"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

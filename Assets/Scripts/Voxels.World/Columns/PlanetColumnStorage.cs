@@ -17,6 +17,17 @@ namespace Voxels.World
             }
         }
 
-        public BlockColumn GetColumn(int cellIndex) => columns[cellIndex];
+        public BlockColumn GetColumn(int cellIndex)
+        {
+            if (cellIndex < 0 || cellIndex >= columns.Length)
+            {
+                throw new System.ArgumentOutOfRangeException(
+                    nameof(cellIndex),
+                    cellIndex,
+                    $"Cell index {cellIndex} is outside column storage (0..{columns.Length - 1}).");
+            }
+
+            return columns[cellIndex];
+        }
     }
 }

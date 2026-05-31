@@ -9,26 +9,38 @@ using Voxels.World;
 namespace Voxels.Runtime
 {
     /// <summary>
-    /// First-person style view standing on the surface. Hold Tab for temporary orbit debug view.
+    /// First-person view on the surface (move mouse to look, scroll for eye height).
+    /// Hold Tab for orbit debug: move mouse to rotate, scroll to zoom.
+    /// Camera is parented to PlayerAnchor in planet-local space.
     /// </summary>
     public sealed class SurfaceSpawnCamera : MonoBehaviour
     {
         [SerializeField] bool spawnOnStart;
         [SerializeField] float lookPitchDown = 8f;
+        [SerializeField] float lookSensitivity = 0.15f;
         [SerializeField] float orbitSpeed = 90f;
         [SerializeField] float scrollSensitivity = 0.15f;
+        [SerializeField] bool requireMouseButtonForLook;
+        [SerializeField] bool lockCursorWhileLooking = true;
+        [SerializeField] float minPitch = -60f;
+        [SerializeField] float maxPitch = 60f;
         [SerializeField] float minEyeHeight = 1.5f;
         [SerializeField] float maxEyeHeight = 3.5f;
+        [SerializeField] float defaultOrbitDistance = 20f;
+        [SerializeField] float minOrbitDistance = 5f;
+        [SerializeField] float maxOrbitDistance = 400f;
+        [SerializeField] float orbitScrollSensitivity = 2f;
 
         int spawnedCellIndex = -1;
         float eyeHeight;
+        float orbitDistance;
         float yaw;
         float pitch;
         float3 surfaceUp;
         float orbitReferenceRadius;
         bool orbitMode;
+        bool cursorLocked;
 
-        public Vector3 SpawnGroundPosition { get; private set; }
         public bool HasSpawned => spawnedCellIndex >= 0;
 
         void Start()
@@ -47,160 +59,338 @@ namespace Voxels.Runtime
             }
 
             HandleModeToggle();
+            HandleCursorLock();
             HandleInput();
             ApplyTransform();
         }
 
-        public bool TrySpawnOnSurface()
+        void HandleCursorLock()
+        {
+            if (!lockCursorWhileLooking || orbitMode)
+            {
+                return;
+            }
+
+#if ENABLE_INPUT_SYSTEM
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                SetCursorLocked(false);
+                return;
+            }
+
+            if (!cursorLocked && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+            {
+                SetCursorLocked(true);
+            }
+#else
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                SetCursorLocked(false);
+                return;
+            }
+
+            if (!cursorLocked && Input.GetMouseButtonDown(0))
+            {
+                SetCursorLocked(true);
+            }
+#endif
+        }
+
+        void SetCursorLocked(bool locked)
+        {
+            cursorLocked = locked;
+            Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !locked;
+        }
+
+        void OnEnable()
+        {
+            if (spawnedCellIndex >= 0 && lockCursorWhileLooking && !orbitMode)
+            {
+                SetCursorLocked(true);
+            }
+        }
+
+        void OnDisable()
+        {
+            SetCursorLocked(false);
+        }
+
+        public bool TrySpawnOnSurface(bool allowDuringBuild = false)
         {
             PlanetBootstrap bootstrap = FindAnyObjectByType<PlanetBootstrap>();
             if (bootstrap == null || bootstrap.PlanetWorld == null)
             {
-                Debug.LogWarning("SurfaceSpawnCamera: Planet not ready yet.");
+                return false;
+            }
+
+            if (!allowDuringBuild && !bootstrap.BuildComplete)
+            {
                 return false;
             }
 
             PlanetWorld world = bootstrap.PlanetWorld;
+            int cellCount = math.min(world.Grid.CellCount, world.Columns.CellCount);
+            if (cellCount <= 0)
+            {
+                Debug.LogWarning("SurfaceSpawnCamera: planet has no cells.");
+                return false;
+            }
+
             PlanetSettings settings = world.Settings;
             int seaLevel = settings.SeaLevelLayer;
             int bestCellIndex = -1;
-            int bestScore = int.MaxValue;
+            int bestScore = int.MinValue;
 
-            for (int attempt = 0; attempt < world.Grid.CellCount; attempt++)
+            for (int attempt = 0; attempt < cellCount; attempt++)
             {
-                int cellIndex = (attempt * 7919) % world.Grid.CellCount;
-                BlockColumn column = world.Columns.GetColumn(cellIndex);
-                int surfaceHeight = column.SurfaceHeight;
-
-                if (surfaceHeight <= seaLevel)
+                int cellIndex = (attempt * 7919) % cellCount;
+                if (!TryScoreSpawnCell(world, cellIndex, seaLevel, requireSpawnPreference: true, out int score))
                 {
                     continue;
                 }
 
-                int heightAboveSea = surfaceHeight - seaLevel;
-                int score = math.abs(heightAboveSea - 2) * 10;
-                if (HasAdjacentWater(world, cellIndex, seaLevel))
-                {
-                    score -= 25;
-                }
-
-                if (score < bestScore)
+                if (score > bestScore)
                 {
                     bestScore = score;
                     bestCellIndex = cellIndex;
-                    if (score <= -15)
+                }
+            }
+
+            if (bestCellIndex < 0)
+            {
+                for (int attempt = 0; attempt < cellCount; attempt++)
+                {
+                    int cellIndex = (attempt * 7919) % cellCount;
+                    if (!TryScoreSpawnCell(world, cellIndex, seaLevel, requireSpawnPreference: false, out int score))
                     {
-                        break;
+                        continue;
+                    }
+
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        bestCellIndex = cellIndex;
                     }
                 }
             }
 
             if (bestCellIndex >= 0)
             {
-                ConfigureSpawn(world, settings, bestCellIndex);
-                FaceAdjacentWater(world, bestCellIndex, seaLevel);
-                return true;
-            }
-
-            for (int attempt = 0; attempt < world.Grid.CellCount; attempt++)
-            {
-                int cellIndex = (attempt * 7919) % world.Grid.CellCount;
-                BlockColumn column = world.Columns.GetColumn(cellIndex);
-                if (column.SurfaceHeight <= seaLevel)
-                {
-                    continue;
-                }
-
-                ConfigureSpawn(world, settings, cellIndex);
+                ConfigureSpawn(world, settings, bestCellIndex, bootstrap.PlayerAnchor);
+                FaceAdjacentWater(world, bestCellIndex, seaLevel, bootstrap.PlayerAnchor);
                 return true;
             }
 
             Debug.LogWarning("SurfaceSpawnCamera: no land cell found, using fallback.");
-            ConfigureFallbackSpawn(world, settings);
+            ConfigureFallbackSpawn(world, settings, bootstrap.PlayerAnchor);
             return true;
         }
 
-        void ConfigureSpawn(PlanetWorld world, PlanetSettings settings, int cellIndex)
+        static bool TryScoreSpawnCell(
+            PlanetWorld world,
+            int cellIndex,
+            int seaLevel,
+            bool requireSpawnPreference,
+            out int score)
         {
+            score = int.MinValue;
+            if (cellIndex < 0 || cellIndex >= world.Columns.CellCount)
+            {
+                return false;
+            }
+
+            BlockColumn column = world.Columns.GetColumn(cellIndex);
+            int surfaceHeight = column.SurfaceHeight;
+            if (surfaceHeight <= seaLevel)
+            {
+                return false;
+            }
+
+            BiomeDefinition biome = world.BiomeMap.GetBiome(cellIndex);
+            int spawnPreference = biome != null ? biome.SpawnPreference : 0;
+            if (requireSpawnPreference && spawnPreference <= 0)
+            {
+                return false;
+            }
+
+            int heightAboveSea = surfaceHeight - seaLevel;
+            score = requireSpawnPreference ? spawnPreference * 100 : 50;
+            score -= math.abs(heightAboveSea - 2) * (requireSpawnPreference ? 8 : 10);
+            if (HasAdjacentWater(world, cellIndex, seaLevel))
+            {
+                score += requireSpawnPreference ? 120 : 80;
+            }
+
+            return true;
+        }
+
+        void ConfigureSpawn(PlanetWorld world, PlanetSettings settings, int cellIndex, PlayerAnchor anchor)
+        {
+            if (cellIndex < 0 || cellIndex >= world.Grid.CellCount)
+            {
+                ConfigureFallbackSpawn(world, settings, anchor);
+                return;
+            }
+
             ref readonly SphereHexCell cell = ref world.Grid.GetCell(cellIndex);
             spawnedCellIndex = cellIndex;
             surfaceUp = math.normalize(cell.Normal);
             orbitReferenceRadius = world.GetCellSurfaceWorldRadius(cellIndex);
-            SpawnGroundPosition = (Vector3)(surfaceUp * orbitReferenceRadius);
             eyeHeight = settings.PlayerEyeHeight;
-            BuildSurfaceBasis(surfaceUp, out _, out _);
+            orbitDistance = Mathf.Max(defaultOrbitDistance, eyeHeight + 8f);
             yaw = 0f;
             pitch = lookPitchDown;
             orbitMode = false;
+
+            if (anchor != null)
+            {
+                anchor.Configure(cellIndex, surfaceUp, orbitReferenceRadius);
+            }
+
+            SetCursorLocked(lockCursorWhileLooking && !orbitMode);
             ApplyTransform();
         }
 
-        void ConfigureFallbackSpawn(PlanetWorld world, PlanetSettings settings)
+        void ConfigureFallbackSpawn(PlanetWorld world, PlanetSettings settings, PlayerAnchor anchor)
         {
             spawnedCellIndex = 0;
             surfaceUp = new float3(0f, 1f, 0f);
             orbitReferenceRadius = world.ApproximateOuterRadius;
-            SpawnGroundPosition = (Vector3)(surfaceUp * orbitReferenceRadius);
             eyeHeight = settings.PlayerEyeHeight;
-            BuildSurfaceBasis(surfaceUp, out _, out _);
+            orbitDistance = Mathf.Max(defaultOrbitDistance, eyeHeight + 8f);
             yaw = 0f;
             pitch = lookPitchDown;
             orbitMode = false;
-            ApplyTransform();
-        }
 
-        /// <summary>
-        /// Planet root was shifted by -SpawnGroundPosition so the spawn tile sits at world origin.
-        /// </summary>
-        public void ApplyPlanetRecenter()
-        {
-            orbitMode = false;
-            pitch = lookPitchDown;
+            if (anchor != null)
+            {
+                anchor.Configure(0, surfaceUp, orbitReferenceRadius);
+            }
+
+            SetCursorLocked(lockCursorWhileLooking && !orbitMode);
             ApplyTransform();
         }
 
         void HandleModeToggle()
         {
+            bool wasOrbitMode = orbitMode;
 #if ENABLE_INPUT_SYSTEM
             bool tabHeld = Keyboard.current != null && Keyboard.current.tabKey.isPressed;
             orbitMode = tabHeld;
 #else
             orbitMode = Input.GetKey(KeyCode.Tab);
 #endif
+
+            if (wasOrbitMode && !orbitMode)
+            {
+                SetCursorLocked(lockCursorWhileLooking);
+            }
+            else if (!wasOrbitMode && orbitMode)
+            {
+                SetCursorLocked(false);
+            }
         }
 
         void HandleInput()
         {
             if (orbitMode)
             {
+                HandleOrbitInput();
                 return;
             }
 
-#if ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null && Mouse.current.rightButton.isPressed)
+            HandlePlayerInput();
+        }
+
+        void HandlePlayerInput()
+        {
+            if (TryReadLookDelta(out Vector2 lookDelta))
             {
-                Vector2 delta = Mouse.current.delta.ReadValue();
-                yaw += delta.x * orbitSpeed * Time.deltaTime;
-                pitch += delta.y * orbitSpeed * Time.deltaTime;
+                ApplyLookDelta(lookDelta);
             }
 
-            float scroll = Mouse.current != null ? Mouse.current.scroll.ReadValue().y : 0f;
-            if (Mathf.Abs(scroll) > 0.001f)
+            if (TryReadScrollDelta(out float scroll))
             {
                 eyeHeight -= scroll * scrollSensitivity;
             }
-#else
-            if (Input.GetMouseButton(1))
+
+            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+            eyeHeight = Mathf.Clamp(eyeHeight, minEyeHeight, maxEyeHeight);
+        }
+
+        void HandleOrbitInput()
+        {
+            if (TryReadLookDelta(requireButton: false, out Vector2 lookDelta))
             {
-                yaw += Input.GetAxis("Mouse X") * orbitSpeed * Time.deltaTime;
-                pitch += Input.GetAxis("Mouse Y") * orbitSpeed * Time.deltaTime;
+                ApplyLookDelta(lookDelta);
             }
 
-            eyeHeight -= Input.GetAxis("Mouse ScrollWheel") * scrollSensitivity;
-#endif
+            if (TryReadScrollDelta(out float scroll))
+            {
+                orbitDistance -= scroll * orbitScrollSensitivity;
+            }
 
-            pitch = Mathf.Clamp(pitch, 0f, 45f);
-            eyeHeight = Mathf.Clamp(eyeHeight, minEyeHeight, maxEyeHeight);
+            pitch = Mathf.Clamp(pitch, -15f, 85f);
+            orbitDistance = Mathf.Clamp(orbitDistance, minOrbitDistance, maxOrbitDistance);
+        }
+
+        void ApplyLookDelta(Vector2 lookDelta)
+        {
+#if ENABLE_INPUT_SYSTEM
+            float sensitivity = lookSensitivity;
+#else
+            float sensitivity = orbitSpeed;
+#endif
+            yaw += lookDelta.x * sensitivity;
+            pitch -= lookDelta.y * sensitivity;
+        }
+
+        bool TryReadLookDelta(out Vector2 delta) => TryReadLookDelta(requireMouseButtonForLook, out delta);
+
+        bool TryReadLookDelta(bool requireButton, out Vector2 delta)
+        {
+            delta = Vector2.zero;
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current == null)
+            {
+                return false;
+            }
+
+            if (requireButton)
+            {
+                bool lookButtonHeld = Mouse.current.rightButton.isPressed || Mouse.current.leftButton.isPressed;
+                if (!lookButtonHeld)
+                {
+                    return false;
+                }
+            }
+
+            delta = Mouse.current.delta.ReadValue();
+            return delta.sqrMagnitude > 0f;
+#else
+            if (requireButton && !Input.GetMouseButton(1) && !Input.GetMouseButton(0))
+            {
+                return false;
+            }
+
+            delta = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
+            return delta.sqrMagnitude > 0f;
+#endif
+        }
+
+        bool TryReadScrollDelta(out float scroll)
+        {
+            scroll = 0f;
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null)
+            {
+                scroll = Mouse.current.scroll.ReadValue().y;
+            }
+#elif !ENABLE_INPUT_SYSTEM
+            scroll = Input.GetAxis("Mouse ScrollWheel");
+#endif
+            return Mathf.Abs(scroll) > 0.001f;
         }
 
         void ApplyTransform()
@@ -216,25 +406,22 @@ namespace Voxels.Runtime
 
         void ApplyPlayerView()
         {
-            float3 up = math.normalize(surfaceUp);
-            BuildSurfaceBasis(up, out float3 basisForward, out float3 basisRight);
-
-            float yawRad = math.radians(yaw);
-            float3 flatForward = math.normalize(basisForward * math.cos(yawRad) + basisRight * math.sin(yawRad));
-            float pitchRad = math.radians(pitch);
-            float3 lookForward = math.normalize(flatForward * math.cos(pitchRad) - up * math.sin(pitchRad));
-
-            transform.position = (Vector3)(up * eyeHeight);
-            transform.rotation = Quaternion.LookRotation((Vector3)lookForward, (Vector3)up);
+            // PlayerAnchor already aligns local Y to the surface normal; stay in anchor space.
+            transform.localPosition = new Vector3(0f, eyeHeight, 0f);
+            transform.localRotation = Quaternion.Euler(pitch, yaw, 0f);
         }
 
         void ApplyOrbitView()
         {
-            float distance = orbitReferenceRadius + eyeHeight;
-            Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
-            Vector3 offset = rotation * new Vector3(0f, 0f, -distance);
-            transform.position = offset;
-            transform.rotation = Quaternion.LookRotation(-offset.normalized, Vector3.up);
+            Vector3 pivot = new Vector3(0f, eyeHeight, 0f);
+            Quaternion orbitRotation = Quaternion.Euler(pitch, yaw, 0f);
+            Vector3 offset = orbitRotation * new Vector3(0f, 0f, -orbitDistance);
+            transform.localPosition = pivot + offset;
+
+            Vector3 lookDirection = pivot - transform.localPosition;
+            transform.localRotation = lookDirection.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(lookDirection, Vector3.up)
+                : orbitRotation;
         }
 
         static void BuildSurfaceBasis(float3 up, out float3 forward, out float3 right)
@@ -252,7 +439,13 @@ namespace Voxels.Runtime
             ref readonly SphereHexCell cell = ref world.Grid.GetCell(cellIndex);
             for (int i = 0; i < cell.NeighborCount; i++)
             {
-                BlockColumn neighborColumn = world.Columns.GetColumn(cell.Neighbors[i]);
+                int neighborIndex = cell.Neighbors[i];
+                if (neighborIndex < 0 || neighborIndex >= world.Columns.CellCount)
+                {
+                    continue;
+                }
+
+                BlockColumn neighborColumn = world.Columns.GetColumn(neighborIndex);
                 if (neighborColumn.SurfaceHeight <= seaLevel)
                 {
                     return true;
@@ -262,15 +455,19 @@ namespace Voxels.Runtime
             return false;
         }
 
-        void FaceAdjacentWater(PlanetWorld world, int cellIndex, int seaLevel)
+        void FaceAdjacentWater(PlanetWorld world, int cellIndex, int seaLevel, PlayerAnchor anchor)
         {
             ref readonly SphereHexCell cell = ref world.Grid.GetCell(cellIndex);
             float3 up = math.normalize(surfaceUp);
-            BuildSurfaceBasis(up, out float3 basisForward, out float3 basisRight);
 
             for (int i = 0; i < cell.NeighborCount; i++)
             {
                 int neighborIndex = cell.Neighbors[i];
+                if (neighborIndex < 0 || neighborIndex >= world.Columns.CellCount)
+                {
+                    continue;
+                }
+
                 BlockColumn neighborColumn = world.Columns.GetColumn(neighborIndex);
                 if (neighborColumn.SurfaceHeight > seaLevel)
                 {
@@ -285,7 +482,17 @@ namespace Voxels.Runtime
                 }
 
                 toWater = math.normalize(toWater);
-                yaw = math.degrees(math.atan2(math.dot(toWater, basisRight), math.dot(toWater, basisForward)));
+                if (anchor != null)
+                {
+                    Vector3 localToWater = anchor.transform.InverseTransformDirection((Vector3)toWater);
+                    yaw = math.degrees(math.atan2(localToWater.x, localToWater.z));
+                }
+                else
+                {
+                    BuildSurfaceBasis(up, out float3 basisForward, out float3 basisRight);
+                    yaw = math.degrees(math.atan2(math.dot(toWater, basisRight), math.dot(toWater, basisForward)));
+                }
+
                 ApplyTransform();
                 return;
             }

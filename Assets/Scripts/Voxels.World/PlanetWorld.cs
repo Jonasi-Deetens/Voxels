@@ -8,12 +8,14 @@ namespace Voxels.World
         readonly PlanetSettings settings;
         readonly IcosphereHexGrid grid;
         readonly PlanetColumnStorage columns;
+        readonly PlanetBiomeMap biomeMap;
         readonly BlockRegistry blockRegistry;
         readonly float shellRadius;
 
         public PlanetSettings Settings => settings;
         public IcosphereHexGrid Grid => grid;
         public PlanetColumnStorage Columns => columns;
+        public PlanetBiomeMap BiomeMap => biomeMap;
         public BlockRegistry BlockRegistry => blockRegistry;
         public float BlockHeight => settings.BlockSize;
         public float ShellRadius => shellRadius;
@@ -27,8 +29,12 @@ namespace Voxels.World
             this.blockRegistry = blockRegistry;
             grid = new IcosphereHexGrid(settings.ResolveSubdivisionLevel());
             shellRadius = settings.ResolveShellRadius(grid.AverageNeighborArc);
-            int columnCapacity = settings.SeaLevelLayer + (int)settings.Biome.MountainAmplitude + 16;
+            float maxAmplitude = settings.BiomeCatalog != null
+                ? settings.BiomeCatalog.MaxMountainAmplitude
+                : settings.Biome != null ? settings.Biome.MountainAmplitude : 18f;
+            int columnCapacity = settings.SeaLevelLayer + (int)maxAmplitude + 16;
             columns = new PlanetColumnStorage(grid, columnCapacity);
+            biomeMap = new PlanetBiomeMap(grid.CellCount);
         }
 
         public void Generate(IWorldGenerator generator)

@@ -28,6 +28,14 @@ namespace Voxels.EditorTools
             Material mantleMat = CreateMaterial("Block_Mantle", new Color(0.32f, 0.18f, 0.14f));
             Material waterMat = CreateTransparentMaterial("Block_Water", new Color(0.15f, 0.45f, 0.82f, 0.55f));
             Material sandMat = CreateMaterial("Block_Sand", new Color(0.82f, 0.76f, 0.52f));
+            Material snowMat = CreateMaterial("Block_Snow", new Color(0.92f, 0.94f, 0.98f));
+            Material iceMat = CreateTransparentMaterial("Block_Ice", new Color(0.7f, 0.88f, 0.95f, 0.65f));
+            Material darkGrassMat = CreateMaterial("Block_DarkGrass", new Color(0.16f, 0.42f, 0.14f));
+            Material yellowGrassMat = CreateMaterial("Block_YellowGrass", new Color(0.72f, 0.68f, 0.28f));
+            Material gravelMat = CreateMaterial("Block_Gravel", new Color(0.58f, 0.58f, 0.6f));
+            Material crystalMat = CreateMaterial("Block_Crystal", new Color(0.55f, 0.82f, 0.95f));
+            Material fungusMat = CreateMaterial("Block_Fungus", new Color(0.62f, 0.28f, 0.72f));
+            Material ashMat = CreateMaterial("Block_Ash", new Color(0.35f, 0.32f, 0.3f));
 
             BlockDefinition grass = CreateBlock("Assets/Data/Blocks/Block_Grass.asset", 1, "Grass", grassMat, true, true);
             BlockDefinition dirt = CreateBlock("Assets/Data/Blocks/Block_Dirt.asset", 2, "Dirt", dirtMat, true, true);
@@ -36,46 +44,101 @@ namespace Voxels.EditorTools
             BlockDefinition mantle = CreateBlock("Assets/Data/Blocks/Block_Mantle.asset", 5, "Mantle", mantleMat, true, true);
             BlockDefinition water = CreateBlock("Assets/Data/Blocks/Block_Water.asset", 6, "Water", waterMat, false, false);
             BlockDefinition sand = CreateBlock("Assets/Data/Blocks/Block_Sand.asset", 7, "Sand", sandMat, true, true);
+            BlockDefinition snow = CreateBlock("Assets/Data/Blocks/Block_Snow.asset", 8, "Snow", snowMat, true, true);
+            BlockDefinition ice = CreateBlock("Assets/Data/Blocks/Block_Ice.asset", 9, "Ice", iceMat, false, false);
+            BlockDefinition darkGrass = CreateBlock("Assets/Data/Blocks/Block_DarkGrass.asset", 10, "Dark Grass", darkGrassMat, true, true);
+            BlockDefinition yellowGrass = CreateBlock("Assets/Data/Blocks/Block_YellowGrass.asset", 11, "Yellow Grass", yellowGrassMat, true, true);
+            BlockDefinition gravel = CreateBlock("Assets/Data/Blocks/Block_Gravel.asset", 12, "Gravel", gravelMat, true, true);
+            BlockDefinition crystal = CreateBlock("Assets/Data/Blocks/Block_Crystal.asset", 13, "Crystal", crystalMat, true, true);
+            BlockDefinition fungus = CreateBlock("Assets/Data/Blocks/Block_Fungus.asset", 14, "Fungus", fungusMat, true, true);
+            BlockDefinition ash = CreateBlock("Assets/Data/Blocks/Block_Ash.asset", 15, "Ash", ashMat, true, true);
 
-            BiomeDefinition biome = CreateOrLoad<BiomeDefinition>("Assets/Data/Biomes/Biome_Grass.asset");
-            SerializedObject biomeObject = new SerializedObject(biome);
-            biomeObject.FindProperty("surfaceBlock").objectReferenceValue = grass;
-            biomeObject.FindProperty("subsoilBlock").objectReferenceValue = dirt;
-            biomeObject.FindProperty("underwaterSurfaceBlock").objectReferenceValue = sand;
-            biomeObject.FindProperty("waterBlock").objectReferenceValue = water;
-            biomeObject.FindProperty("coreBlock").objectReferenceValue = core;
-            biomeObject.FindProperty("mantleBlock").objectReferenceValue = mantle;
-            biomeObject.FindProperty("bedrockBlock").objectReferenceValue = stone;
-            biomeObject.FindProperty("dirtDepth").intValue = 4;
-            biomeObject.FindProperty("continentalFrequency").floatValue = 0.45f;
-            biomeObject.FindProperty("continentalThreshold").floatValue = 0.35f;
-            biomeObject.FindProperty("continentalBlendWidth").floatValue = 0.3f;
-            biomeObject.FindProperty("oceanDepthMin").intValue = 6;
-            biomeObject.FindProperty("oceanDepthMax").intValue = 14;
-            biomeObject.FindProperty("terrainTypeFrequency").floatValue = 0.75f;
-            biomeObject.FindProperty("plainsUpperThreshold").floatValue = -0.1f;
-            biomeObject.FindProperty("hillsUpperThreshold").floatValue = 0.25f;
-            biomeObject.FindProperty("plainsRoughness").floatValue = 2f;
-            biomeObject.FindProperty("hillsAmplitude").floatValue = 6f;
-            biomeObject.FindProperty("mountainAmplitude").floatValue = 18f;
-            biomeObject.FindProperty("mountainFrequency").floatValue = 1.8f;
-            biomeObject.FindProperty("detailAmplitude").floatValue = 4f;
-            biomeObject.FindProperty("detailFrequency").floatValue = 5.5f;
-            biomeObject.FindProperty("ridgeFrequency").floatValue = 3.2f;
-            biomeObject.FindProperty("ridgeAmplitude").floatValue = 6f;
-            biomeObject.FindProperty("caveFrequency").floatValue = 2.5f;
-            biomeObject.FindProperty("caveThreshold").floatValue = 0.62f;
-            biomeObject.FindProperty("caveMinLayerAboveCore").intValue = 6;
-            biomeObject.FindProperty("caveMaxDepthBelowSurface").intValue = 5;
-            biomeObject.ApplyModifiedPropertiesWithoutUndo();
+            BiomeDefinition grassland = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Grassland.asset",
+                grass, dirt, sand, water, core, mantle, stone,
+                spawnPreference: 100);
+            MigrateLegacyGrassBiome("Assets/Data/Biomes/Biome_Grass.asset", grassland);
+
+            BiomeDefinition forest = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Forest.asset",
+                darkGrass, dirt, sand, water, core, mantle, stone,
+                spawnPreference: 90);
+            BiomeDefinition beach = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Beach.asset",
+                sand, sand, sand, water, core, mantle, stone,
+                spawnPreference: 80,
+                mountainAmplitude: 8f,
+                detailAmplitude: 2f);
+            BiomeDefinition savanna = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Savanna.asset",
+                yellowGrass, dirt, sand, water, core, mantle, stone);
+            BiomeDefinition desert = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Desert.asset",
+                sand, sand, sand, water, core, mantle, stone,
+                mountainAmplitude: 10f,
+                detailAmplitude: 2f,
+                continentalThreshold: 0.32f);
+            BiomeDefinition tundra = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Tundra.asset",
+                snow, gravel, sand, water, core, mantle, stone);
+            BiomeDefinition taiga = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Taiga.asset",
+                snow, dirt, sand, water, core, mantle, stone);
+            BiomeDefinition swamp = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Swamp.asset",
+                darkGrass, dirt, sand, water, core, mantle, stone);
+            BiomeDefinition alpine = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Alpine.asset",
+                snow, stone, sand, water, core, mantle, stone,
+                alpineElevationThreshold: 12,
+                mountainAmplitude: 22f);
+            BiomeDefinition ocean = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Ocean.asset",
+                sand, sand, sand, water, core, mantle, stone,
+                continentalThreshold: 0.5f);
+            BiomeDefinition crystalWastes = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_CrystalWastes.asset",
+                crystal, stone, sand, water, core, mantle, stone,
+                mountainAmplitude: 14f);
+            BiomeDefinition fungalBloom = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_FungalBloom.asset",
+                fungus, dirt, sand, water, core, mantle, stone);
+            BiomeDefinition ashlands = CreateTerrainBiome(
+                "Assets/Data/Biomes/Biome_Ashlands.asset",
+                ash, ash, sand, water, core, mantle, stone,
+                mountainAmplitude: 12f);
+
+            BiomeCatalog catalog = CreateOrLoad<BiomeCatalog>("Assets/Data/BiomeCatalog_Default.asset");
+            SerializedObject catalogObject = new SerializedObject(catalog);
+            catalogObject.FindProperty("terrainProfile").objectReferenceValue = grassland;
+            catalogObject.FindProperty("fallbackBiome").objectReferenceValue = grassland;
+            catalogObject.FindProperty("oceanBiome").objectReferenceValue = ocean;
+            catalogObject.FindProperty("alpineBiome").objectReferenceValue = alpine;
+
+            SerializedProperty rulesProperty = catalogObject.FindProperty("rules");
+            rulesProperty.arraySize = 11;
+            SetRule(rulesProperty, 0, beach, 25, -0.2f, 0.8f, 0.45f, 1f, 0f, 1f, 0, 40, 0, 2);
+            SetRule(rulesProperty, 1, crystalWastes, 30, -1f, 0.15f, 0f, 1f, 0.78f, 1f, 0, 9999, 0, 9999);
+            SetRule(rulesProperty, 2, fungalBloom, 28, -0.3f, 0.8f, 0.72f, 1f, 0.55f, 0.88f, 0, 9999, 0, 9999);
+            SetRule(rulesProperty, 3, ashlands, 27, 0.35f, 1f, 0f, 0.32f, 0.72f, 1f, 0, 9999, 0, 9999);
+            SetRule(rulesProperty, 4, swamp, 20, 0.15f, 1f, 0.78f, 1f, 0f, 1f, 0, 9999, 0, 9999);
+            SetRule(rulesProperty, 5, desert, 18, 0.3f, 1f, 0f, 0.3f, 0f, 1f, 0, 9999, 0, 9999);
+            SetRule(rulesProperty, 6, taiga, 16, -1f, 0.05f, 0.45f, 1f, 0f, 1f, 0, 9999, 0, 9999);
+            SetRule(rulesProperty, 7, tundra, 14, -1f, 0.1f, 0f, 0.48f, 0f, 1f, 0, 9999, 0, 9999);
+            SetRule(rulesProperty, 8, savanna, 12, 0.2f, 0.85f, 0.22f, 0.58f, 0f, 1f, 0, 9999, 0, 9999);
+            SetRule(rulesProperty, 9, forest, 10, -0.2f, 0.55f, 0.52f, 1f, 0f, 1f, 0, 9999, 0, 9999);
+            SetRule(rulesProperty, 10, grassland, 5, -0.25f, 0.5f, 0.28f, 0.68f, 0f, 1f, 0, 9999, 0, 9999);
+
+            catalogObject.ApplyModifiedPropertiesWithoutUndo();
 
             PlanetSettings planet = CreateOrLoad<PlanetSettings>("Assets/Data/Planet_Default.asset");
             SerializedObject planetObject = new SerializedObject(planet);
             planetObject.FindProperty("subdivisionLevel").intValue = 6;
             planetObject.FindProperty("seed").intValue = 42;
-            planetObject.FindProperty("biome").objectReferenceValue = biome;
-            planetObject.FindProperty("cellsPerChunk").intValue = 256;
-            planetObject.FindProperty("planetRadiusScale").floatValue = 2f;
+            planetObject.FindProperty("biomeCatalog").objectReferenceValue = catalog;
+            planetObject.FindProperty("biome").objectReferenceValue = grassland;
+            planetObject.FindProperty("cellsPerChunk").intValue = 512;
+            planetObject.FindProperty("planetRadiusScale").floatValue = 4f;
             planetObject.FindProperty("blockSize").floatValue = 1f;
             planetObject.FindProperty("playerEyeHeight").floatValue = 1.7f;
             planetObject.FindProperty("playerHeight").floatValue = 2f;
@@ -83,11 +146,15 @@ namespace Voxels.EditorTools
             planetObject.FindProperty("mantleLayerCount").intValue = 96;
             planetObject.FindProperty("crustLayerCount").intValue = 56;
             planetObject.FindProperty("seaLevelOffsetFromCrust").intValue = 12;
+            planetObject.FindProperty("dayLengthSeconds").floatValue = 900f;
+            planetObject.FindProperty("axisTiltDegrees").floatValue = 23.5f;
+            planetObject.FindProperty("sunDistanceMultiplier").floatValue = 50f;
+            planetObject.FindProperty("sunAngularSize").floatValue = 1.2f;
             planetObject.ApplyModifiedPropertiesWithoutUndo();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("Voxels default content created under Assets/Data and Assets/Materials.");
+            Debug.Log("Voxels default content created: 13 biomes, BiomeCatalog, scale=4, cellsPerChunk=512.");
         }
 
         [MenuItem("Voxels/Setup Sample Scene")]
@@ -98,7 +165,7 @@ namespace Voxels.EditorTools
             Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
             SetupPlanetInScene(scene);
             EditorSceneManager.SaveScene(scene);
-            Debug.Log("Sample scene configured with Planet and OrbitCamera.");
+            Debug.Log("Sample scene configured with planet, loading overlay, and surface camera.");
         }
 
         static void SetupPlanetInScene(Scene scene)
@@ -125,25 +192,43 @@ namespace Voxels.EditorTools
             }
 
             PlanetSettings settings = AssetDatabase.LoadAssetAtPath<PlanetSettings>("Assets/Data/Planet_Default.asset");
-            BlockDefinition grass = AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Grass.asset");
-            BlockDefinition dirt = AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Dirt.asset");
-            BlockDefinition stone = AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Stone.asset");
-            BlockDefinition core = AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Core.asset");
-            BlockDefinition mantle = AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Mantle.asset");
-            BlockDefinition water = AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Water.asset");
-            BlockDefinition sand = AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Sand.asset");
+            BlockDefinition[] blocks =
+            {
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Grass.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Dirt.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Stone.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Core.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Mantle.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Water.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Sand.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Snow.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Ice.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_DarkGrass.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_YellowGrass.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Gravel.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Crystal.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Fungus.asset"),
+                AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Ash.asset"),
+            };
+
+            Light directionalLight = Object.FindFirstObjectByType<Light>();
+            if (directionalLight == null || directionalLight.type != LightType.Directional)
+            {
+                var lightObject = new GameObject("Directional Light");
+                directionalLight = lightObject.AddComponent<Light>();
+                directionalLight.type = LightType.Directional;
+            }
 
             SerializedObject bootstrapObject = new SerializedObject(bootstrap);
             bootstrapObject.FindProperty("settings").objectReferenceValue = settings;
             bootstrapObject.FindProperty("chunkRoot").objectReferenceValue = chunkRoot;
-            bootstrapObject.FindProperty("blockDefinitions").arraySize = 7;
-            bootstrapObject.FindProperty("blockDefinitions").GetArrayElementAtIndex(0).objectReferenceValue = grass;
-            bootstrapObject.FindProperty("blockDefinitions").GetArrayElementAtIndex(1).objectReferenceValue = dirt;
-            bootstrapObject.FindProperty("blockDefinitions").GetArrayElementAtIndex(2).objectReferenceValue = stone;
-            bootstrapObject.FindProperty("blockDefinitions").GetArrayElementAtIndex(3).objectReferenceValue = core;
-            bootstrapObject.FindProperty("blockDefinitions").GetArrayElementAtIndex(4).objectReferenceValue = mantle;
-            bootstrapObject.FindProperty("blockDefinitions").GetArrayElementAtIndex(5).objectReferenceValue = water;
-            bootstrapObject.FindProperty("blockDefinitions").GetArrayElementAtIndex(6).objectReferenceValue = sand;
+            bootstrapObject.FindProperty("directionalLight").objectReferenceValue = directionalLight;
+            bootstrapObject.FindProperty("blockDefinitions").arraySize = blocks.Length;
+            for (int i = 0; i < blocks.Length; i++)
+            {
+                bootstrapObject.FindProperty("blockDefinitions").GetArrayElementAtIndex(i).objectReferenceValue = blocks[i];
+            }
+
             bootstrapObject.ApplyModifiedPropertiesWithoutUndo();
 
             Camera camera = Camera.main;
@@ -171,6 +256,89 @@ namespace Voxels.EditorTools
             }
 
             EditorSceneManager.MarkSceneDirty(scene);
+        }
+
+        static BiomeDefinition CreateTerrainBiome(
+            string path,
+            BlockDefinition surface,
+            BlockDefinition subsoil,
+            BlockDefinition underwater,
+            BlockDefinition water,
+            BlockDefinition core,
+            BlockDefinition mantle,
+            BlockDefinition bedrock,
+            int spawnPreference = 0,
+            int alpineElevationThreshold = 14,
+            float mountainAmplitude = 18f,
+            float detailAmplitude = 4f,
+            float continentalThreshold = 0.35f)
+        {
+            BiomeDefinition biome = CreateOrLoad<BiomeDefinition>(path);
+            SerializedObject biomeObject = new SerializedObject(biome);
+            biomeObject.FindProperty("surfaceBlock").objectReferenceValue = surface;
+            biomeObject.FindProperty("subsoilBlock").objectReferenceValue = subsoil;
+            biomeObject.FindProperty("underwaterSurfaceBlock").objectReferenceValue = underwater;
+            biomeObject.FindProperty("waterBlock").objectReferenceValue = water;
+            biomeObject.FindProperty("coreBlock").objectReferenceValue = core;
+            biomeObject.FindProperty("mantleBlock").objectReferenceValue = mantle;
+            biomeObject.FindProperty("bedrockBlock").objectReferenceValue = bedrock;
+            biomeObject.FindProperty("dirtDepth").intValue = 4;
+            biomeObject.FindProperty("continentalFrequency").floatValue = 0.45f;
+            biomeObject.FindProperty("continentalThreshold").floatValue = continentalThreshold;
+            biomeObject.FindProperty("continentalBlendWidth").floatValue = 0.3f;
+            biomeObject.FindProperty("oceanDepthMin").intValue = 6;
+            biomeObject.FindProperty("oceanDepthMax").intValue = 14;
+            biomeObject.FindProperty("terrainTypeFrequency").floatValue = 0.75f;
+            biomeObject.FindProperty("plainsUpperThreshold").floatValue = -0.1f;
+            biomeObject.FindProperty("hillsUpperThreshold").floatValue = 0.25f;
+            biomeObject.FindProperty("plainsRoughness").floatValue = 2f;
+            biomeObject.FindProperty("hillsAmplitude").floatValue = 6f;
+            biomeObject.FindProperty("mountainAmplitude").floatValue = mountainAmplitude;
+            biomeObject.FindProperty("mountainFrequency").floatValue = 1.8f;
+            biomeObject.FindProperty("detailAmplitude").floatValue = detailAmplitude;
+            biomeObject.FindProperty("detailFrequency").floatValue = 5.5f;
+            biomeObject.FindProperty("ridgeFrequency").floatValue = 3.2f;
+            biomeObject.FindProperty("ridgeAmplitude").floatValue = 6f;
+            biomeObject.FindProperty("caveFrequency").floatValue = 2.5f;
+            biomeObject.FindProperty("caveThreshold").floatValue = 0.62f;
+            biomeObject.FindProperty("caveMinLayerAboveCore").intValue = 6;
+            biomeObject.FindProperty("caveMaxDepthBelowSurface").intValue = 5;
+            biomeObject.FindProperty("alpineElevationThreshold").intValue = alpineElevationThreshold;
+            biomeObject.FindProperty("spawnPreference").intValue = spawnPreference;
+            biomeObject.ApplyModifiedPropertiesWithoutUndo();
+            return biome;
+        }
+
+        static void SetRule(
+            SerializedProperty rulesProperty,
+            int index,
+            BiomeDefinition biome,
+            int priority,
+            float minTemp,
+            float maxTemp,
+            float minHumidity,
+            float maxHumidity,
+            float minLeyLine,
+            float maxLeyLine,
+            int minElevation,
+            int maxElevation,
+            int minCoastDistance,
+            int maxCoastDistance)
+        {
+            SerializedProperty element = rulesProperty.GetArrayElementAtIndex(index);
+            element.FindPropertyRelative("biome").objectReferenceValue = biome;
+            element.FindPropertyRelative("priority").intValue = priority;
+            element.FindPropertyRelative("minTemperature").floatValue = minTemp;
+            element.FindPropertyRelative("maxTemperature").floatValue = maxTemp;
+            element.FindPropertyRelative("minHumidity").floatValue = minHumidity;
+            element.FindPropertyRelative("maxHumidity").floatValue = maxHumidity;
+            element.FindPropertyRelative("minLeyLine").floatValue = minLeyLine;
+            element.FindPropertyRelative("maxLeyLine").floatValue = maxLeyLine;
+            element.FindPropertyRelative("minElevationAboveSea").intValue = minElevation;
+            element.FindPropertyRelative("maxElevationAboveSea").intValue = maxElevation;
+            element.FindPropertyRelative("minCoastDistance").intValue = minCoastDistance;
+            element.FindPropertyRelative("maxCoastDistance").intValue = maxCoastDistance;
+            element.FindPropertyRelative("requiresLand").boolValue = true;
         }
 
         static Material CreateMaterial(string name, Color color)
@@ -248,6 +416,15 @@ namespace Voxels.EditorTools
             }
 
             AssetDatabase.CreateFolder(parent, folder);
+        }
+
+        static void MigrateLegacyGrassBiome(string legacyPath, BiomeDefinition grassland)
+        {
+            BiomeDefinition legacy = AssetDatabase.LoadAssetAtPath<BiomeDefinition>(legacyPath);
+            if (legacy != null && legacy != grassland)
+            {
+                AssetDatabase.DeleteAsset(legacyPath);
+            }
         }
     }
 }

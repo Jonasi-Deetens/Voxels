@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 using Voxels.Rendering;
 using Voxels.World;
@@ -12,69 +14,119 @@ namespace Voxels.Runtime
         [SerializeField] PlanetSettings settings;
         [SerializeField] BlockDefinition[] blockDefinitions;
         [SerializeField] Transform chunkRoot;
+        [SerializeField] Light directionalLight;
+        [SerializeField] Transform playerAnchorRoot;
 
         PlanetWorld planetWorld;
+        PlayerAnchor playerAnchor;
+        CelestialSystem celestialSystem;
+        bool buildComplete;
 
         public PlanetWorld PlanetWorld => planetWorld;
+        public PlayerAnchor PlayerAnchor => playerAnchor;
+        public bool BuildComplete => buildComplete;
 
         void Awake()
         {
-            BuildPlanet();
+            StartCoroutine(BuildPlanetAsync());
         }
 
-        public void BuildPlanet()
+        public void RegeneratePlanet()
         {
-            if (settings == null)
+            StopAllCoroutines();
+            if (Application.isPlaying)
             {
-                Debug.LogError("PlanetBootstrap requires PlanetSettings.");
+                StartCoroutine(BuildPlanetAsync());
                 return;
             }
 
-            if (settings.Biome == null)
+            IEnumerator build = BuildPlanetAsync();
+            while (build.MoveNext())
             {
-                Debug.LogError("PlanetSettings.Biome is not assigned. Run Voxels/Setup Default Content.");
-                return;
+            }
+        }
+
+        public IEnumerator BuildPlanetAsync()
+        {
+            buildComplete = false;
+            var stopwatch = Stopwatch.StartNew();
+
+            if (settings == null)
+            {
+                UnityEngine.Debug.LogError("PlanetBootstrap requires PlanetSettings.");
+                yield break;
+            }
+
+            if (settings.BiomeCatalog == null && settings.Biome == null)
+            {
+                UnityEngine.Debug.LogError("PlanetSettings needs BiomeCatalog. Run Voxels/Setup Default Content.");
+                yield break;
+            }
+
+            PlanetBuildOverlay overlay = PlanetBuildOverlay.Ensure();
+            overlay.SetVisible(true);
+            overlay.Report(0f, "Preparing planet…");
+
+            SurfaceSpawnCamera surfaceCamera = FindAnyObjectByType<SurfaceSpawnCamera>();
+            if (surfaceCamera != null)
+            {
+                surfaceCamera.enabled = false;
             }
 
             ClearChunks();
+            transform.localPosition = Vector3.zero;
+            transform.localRotation = Quaternion.identity;
 
             BlockRegistry registry = BlockRegistryBuilder.Build(settings, blockDefinitions);
-
             planetWorld = new PlanetWorld(settings, registry);
-            planetWorld.Generate(new PlanetLayerGenerator(settings));
 
-            var surfaceCamera = FindAnyObjectByType<SurfaceSpawnCamera>();
+            var generator = new PlanetLayerGenerator(settings);
+            yield return generator.GenerateBatched(
+                planetWorld,
+                PlanetLayerGenerator.DefaultBatchSize,
+                overlay.Report);
 
+            Transform root = chunkRoot != null ? chunkRoot : transform;
             var meshBuilder = new HexBlockMeshBuilder(planetWorld);
             List<int>[] chunkGroups = PlanetChunkUtility.BuildChunkCellGroups(
                 planetWorld.Grid.CellCount,
                 settings.CellsPerChunk);
 
-            Transform root = chunkRoot != null ? chunkRoot : transform;
             int chunkCount = 0;
             int waterVertices = 0;
+            int meshBatch = 0;
 
             for (int i = 0; i < chunkGroups.Length; i++)
             {
                 ChunkMeshData meshData = meshBuilder.BuildChunk(chunkGroups[i]);
-                if (meshData.IsEmpty)
+                if (!meshData.IsEmpty)
                 {
-                    continue;
+                    chunkCount++;
+                    var chunkObject = new GameObject($"Chunk_{i}");
+                    chunkObject.transform.SetParent(root, false);
+
+                    var meshFilter = chunkObject.AddComponent<MeshFilter>();
+                    var meshRenderer = chunkObject.AddComponent<MeshRenderer>();
+                    var meshCollider = chunkObject.AddComponent<MeshCollider>();
+
+                    Mesh mesh = ChunkMeshFactory.CreateMesh(meshData);
+                    meshFilter.sharedMesh = mesh;
+                    meshRenderer.sharedMaterials = ChunkMeshFactory.GetMaterials(meshData);
+                    meshCollider.sharedMesh = mesh;
                 }
 
-                chunkCount++;
-                var chunkObject = new GameObject($"Chunk_{i}");
-                chunkObject.transform.SetParent(root, false);
-
-                var meshFilter = chunkObject.AddComponent<MeshFilter>();
-                var meshRenderer = chunkObject.AddComponent<MeshRenderer>();
-                var meshCollider = chunkObject.AddComponent<MeshCollider>();
-
-                Mesh mesh = ChunkMeshFactory.CreateMesh(meshData);
-                meshFilter.sharedMesh = mesh;
-                meshRenderer.sharedMaterials = ChunkMeshFactory.GetMaterials(meshData);
-                meshCollider.sharedMesh = mesh;
+                meshBatch++;
+                if (meshBatch >= 8)
+                {
+                    meshBatch = 0;
+                    float meshProgress = 0.92f + 0.06f * (i + 1) / chunkGroups.Length;
+                    overlay.Report(meshProgress, $"Meshing chunk {i + 1}/{chunkGroups.Length}…");
+                    yield return null;
+                }
             }
+
+            overlay.Report(0.98f, "Building water…");
+            yield return null;
 
             ChunkMeshData waterMeshData = new WaterMeshBuilder(planetWorld).Build();
             if (!waterMeshData.IsEmpty)
@@ -91,21 +143,66 @@ namespace Voxels.Runtime
                 waterRenderer.sharedMaterials = ChunkMeshFactory.GetMaterials(waterMeshData);
             }
 
-            Debug.Log(
-                $"Planet built (seed={settings.Seed}): {planetWorld.Grid.CellCount} cells, " +
-                $"{chunkCount}/{chunkGroups.Length} terrain chunks, waterVertices={waterVertices}, " +
-                $"shellRadius={planetWorld.ShellRadius:F1}.");
+            SetupPlayerAnchor(surfaceCamera);
+            SetupCelestialSystem();
+
+            stopwatch.Stop();
+            UnityEngine.Debug.Log(
+                $"Planet built (seed={settings.Seed}, subdiv={settings.ResolveSubdivisionLevel()}): " +
+                $"{planetWorld.Grid.CellCount} cells, {chunkCount}/{chunkGroups.Length} terrain chunks, " +
+                $"waterVertices={waterVertices}, shellRadius={planetWorld.ShellRadius:F1}, " +
+                $"buildTime={stopwatch.Elapsed.TotalSeconds:F1}s.");
 
             if (chunkCount == 0)
             {
-                Debug.LogError("Planet built zero visible chunks. Check block definitions and biome block references.");
+                UnityEngine.Debug.LogError("Planet built zero visible chunks. Check block definitions and biome block references.");
             }
 
-            if (surfaceCamera != null && surfaceCamera.TrySpawnOnSurface())
+            overlay.Report(1f, "Ready.");
+            yield return null;
+            overlay.SetVisible(false);
+            buildComplete = true;
+
+            if (surfaceCamera != null)
             {
-                Vector3 shift = surfaceCamera.SpawnGroundPosition;
-                transform.position = -shift;
-                surfaceCamera.ApplyPlanetRecenter();
+                surfaceCamera.enabled = true;
+            }
+        }
+
+        void SetupCelestialSystem()
+        {
+            if (celestialSystem == null)
+            {
+                celestialSystem = GetComponent<CelestialSystem>();
+                if (celestialSystem == null)
+                {
+                    celestialSystem = gameObject.AddComponent<CelestialSystem>();
+                }
+            }
+
+            celestialSystem.Initialize(settings, planetWorld, directionalLight, playerAnchor);
+        }
+
+        void SetupPlayerAnchor(SurfaceSpawnCamera surfaceCamera)
+        {
+            Transform anchorTransform = playerAnchorRoot;
+            if (anchorTransform == null)
+            {
+                var anchorObject = new GameObject("PlayerAnchor");
+                anchorObject.transform.SetParent(transform, false);
+                anchorTransform = anchorObject.transform;
+            }
+
+            playerAnchor = anchorTransform.GetComponent<PlayerAnchor>();
+            if (playerAnchor == null)
+            {
+                playerAnchor = anchorTransform.gameObject.AddComponent<PlayerAnchor>();
+            }
+
+            if (surfaceCamera != null)
+            {
+                surfaceCamera.transform.SetParent(anchorTransform, false);
+                surfaceCamera.TrySpawnOnSurface(allowDuringBuild: true);
             }
         }
 
@@ -114,7 +211,20 @@ namespace Voxels.Runtime
             Transform root = chunkRoot != null ? chunkRoot : transform;
             for (int i = root.childCount - 1; i >= 0; i--)
             {
-                Destroy(root.GetChild(i).gameObject);
+                Transform child = root.GetChild(i);
+                if (child.GetComponent<PlayerAnchor>() != null)
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Destroy(child.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(child.gameObject);
+                }
             }
         }
     }
