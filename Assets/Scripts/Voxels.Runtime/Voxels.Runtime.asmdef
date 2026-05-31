@@ -1,0 +1,19 @@
+{
+    "name": "Voxels.Runtime",
+    "rootNamespace": "Voxels.Runtime",
+    "references": [
+        "Voxels.Core",
+        "Voxels.World",
+        "Voxels.Rendering",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

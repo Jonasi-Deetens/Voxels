@@ -1,0 +1,21 @@
+{
+    "name": "Voxels.Editor",
+    "rootNamespace": "Voxels.Editor",
+    "references": [
+        "Voxels.Core",
+        "Voxels.World",
+        "Voxels.Rendering",
+        "Voxels.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,17 @@
+{
+    "name": "Voxels.World",
+    "rootNamespace": "Voxels.World",
+    "references": [
+        "Voxels.Core",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
