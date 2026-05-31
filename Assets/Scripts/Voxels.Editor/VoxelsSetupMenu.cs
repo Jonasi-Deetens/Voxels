@@ -150,16 +150,24 @@ namespace Voxels.EditorTools
             if (camera != null)
             {
                 OrbitCamera orbit = camera.GetComponent<OrbitCamera>();
-                if (orbit == null)
+                if (orbit != null)
                 {
-                    orbit = camera.gameObject.AddComponent<OrbitCamera>();
+                    orbit.enabled = false;
                 }
 
-                SerializedObject orbitObject = new SerializedObject(orbit);
-                orbitObject.FindProperty("target").objectReferenceValue = planetObject.transform;
-                orbitObject.FindProperty("minDistance").floatValue = 14000f;
-                orbitObject.FindProperty("maxDistance").floatValue = 55000f;
-                orbitObject.ApplyModifiedPropertiesWithoutUndo();
+                SurfaceSpawnCamera surface = camera.GetComponent<SurfaceSpawnCamera>();
+                if (surface == null)
+                {
+                    surface = camera.gameObject.AddComponent<SurfaceSpawnCamera>();
+                }
+
+                SerializedObject surfaceObject = new SerializedObject(surface);
+                surfaceObject.FindProperty("spawnOnStart").boolValue = false;
+                surfaceObject.FindProperty("lookPitchDown").floatValue = 8f;
+                surfaceObject.FindProperty("minEyeHeight").floatValue = 1.5f;
+                surfaceObject.FindProperty("maxEyeHeight").floatValue = 3.5f;
+                surfaceObject.ApplyModifiedPropertiesWithoutUndo();
+                surface.enabled = true;
             }
 
             EditorSceneManager.MarkSceneDirty(scene);

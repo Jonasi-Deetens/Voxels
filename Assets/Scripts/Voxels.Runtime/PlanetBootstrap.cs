@@ -103,7 +103,8 @@ namespace Voxels.Runtime
 
             if (surfaceCamera != null && surfaceCamera.TrySpawnOnSurface())
             {
-                transform.position = -surfaceCamera.SpawnGroundPosition;
+                Vector3 shift = surfaceCamera.SpawnGroundPosition;
+                transform.position = -shift;
                 surfaceCamera.ApplyPlanetRecenter();
             }
         }
