@@ -29,7 +29,8 @@ namespace Voxels.World.Generation
         public IEnumerator GenerateBatched(PlanetWorld world, int batchSize, Action<float, string> reportProgress)
         {
             int cellCount = world.Grid.CellCount;
-            batchSize = math.max(1, batchSize);
+            var frameBudget = new BuildFrameBudget(settings.BuildFrameBudgetMs);
+            int progressStride = math.max(1, cellCount / 128);
 
             BiomeCatalog catalog = RequireCatalog();
             BiomeDefinition terrainProfile = catalog.TerrainProfile;
@@ -46,18 +47,22 @@ namespace Voxels.World.Generation
             int[] surfaceHeights = new int[cellCount];
 
             reportProgress?.Invoke(0.02f, "Generating height map…");
-            for (int start = 0; start < cellCount; start += batchSize)
+            for (int i = 0; i < cellCount; i++)
             {
-                int end = math.min(start + batchSize, cellCount);
-                for (int i = start; i < end; i++)
+                SphereHexCell cell = grid.GetCell(i);
+                surfaceHeights[i] = SampleSurfaceHeight(cell.Normal, terrainProfile, crustTop, seaLevel);
+                storage.GetColumn(i).SetSurfaceHeight(surfaceHeights[i]);
+
+                if (i % progressStride == 0 || i == cellCount - 1)
                 {
-                    SphereHexCell cell = grid.GetCell(i);
-                    surfaceHeights[i] = SampleSurfaceHeight(cell.Normal, terrainProfile, crustTop, seaLevel);
-                    storage.GetColumn(i).SetSurfaceHeight(surfaceHeights[i]);
+                    reportProgress?.Invoke(0.02f + 0.28f * (i + 1) / cellCount, "Generating height map…");
                 }
 
-                reportProgress?.Invoke(0.02f + 0.28f * end / cellCount, "Generating height map…");
-                yield return null;
+                if (frameBudget.ShouldYield())
+                {
+                    yield return null;
+                    frameBudget.MarkYield();
+                }
             }
 
             reportProgress?.Invoke(0.32f, "Computing climate…");
@@ -68,56 +73,67 @@ namespace Voxels.World.Generation
             var biomeSelector = new BiomeSelector(catalog);
             var climateSamples = new ClimateSample[cellCount];
 
-            for (int start = 0; start < cellCount; start += batchSize)
+            for (int i = 0; i < cellCount; i++)
             {
-                int end = math.min(start + batchSize, cellCount);
-                for (int i = start; i < end; i++)
+                SphereHexCell cell = grid.GetCell(i);
+                climateSamples[i] = climateSampler.Sample(
+                    in cell,
+                    surfaceHeights[i],
+                    seaLevel,
+                    crustTop,
+                    coastField);
+                BiomeDefinition selected = biomeSelector.Select(climateSamples[i]);
+                biomeMap.SetBiome(i, selected);
+
+                if (i % progressStride == 0 || i == cellCount - 1)
                 {
-                    SphereHexCell cell = grid.GetCell(i);
-                    climateSamples[i] = climateSampler.Sample(
-                        in cell,
-                        surfaceHeights[i],
-                        seaLevel,
-                        crustTop,
-                        coastField);
-                    BiomeDefinition selected = biomeSelector.Select(climateSamples[i]);
-                    biomeMap.SetBiome(i, selected);
+                    reportProgress?.Invoke(0.32f + 0.18f * (i + 1) / cellCount, "Computing climate…");
                 }
 
-                reportProgress?.Invoke(0.32f + 0.18f * end / cellCount, "Computing climate…");
-                yield return null;
+                if (frameBudget.ShouldYield())
+                {
+                    yield return null;
+                    frameBudget.MarkYield();
+                }
             }
 
             reportProgress?.Invoke(0.52f, "Filling columns…");
-            for (int start = 0; start < cellCount; start += batchSize)
-            {
-                int end = math.min(start + batchSize, cellCount);
-                for (int i = start; i < end; i++)
-                {
-                    SphereHexCell cell = grid.GetCell(i);
-                    BlockColumn column = storage.GetColumn(i);
-                    int surfaceHeight = surfaceHeights[i];
-                    BiomeDefinition cellBiome = biomeMap.GetBiome(i) ?? terrainProfile;
-                    BiomeBlockIds blocks = BiomeBlockIds.FromBiome(cellBiome);
+            var geologyTemplate = new BlockColumn(crustTop);
+            FillGeology(geologyTemplate, coreEnd, mantleEnd, crustTop, geologyBlocks.Core, geologyBlocks.Mantle, geologyBlocks.Bedrock);
 
-                    FillGeology(column, coreEnd, mantleEnd, crustTop, geologyBlocks.Core, geologyBlocks.Mantle, geologyBlocks.Bedrock);
-                    FillTerrainColumn(column, crustTop, surfaceHeight, blocks.Bedrock);
-                    CarveCaves(column, cell.Normal, cellBiome, coreEnd, surfaceHeight);
-                    ApplySurfaceBlocks(
-                        column,
-                        surfaceHeight,
-                        seaLevel,
-                        crustTop,
-                        cellBiome.DirtDepth,
-                        blocks.Grass,
-                        blocks.Dirt,
-                        blocks.Sand,
-                        blocks.Bedrock);
-                    FillWater(column, surfaceHeight, seaLevel, blocks.Water);
+            for (int i = 0; i < cellCount; i++)
+            {
+                SphereHexCell cell = grid.GetCell(i);
+                BlockColumn column = storage.GetColumn(i);
+                int surfaceHeight = surfaceHeights[i];
+                BiomeDefinition cellBiome = biomeMap.GetBiome(i) ?? terrainProfile;
+                BiomeBlockIds blocks = BiomeBlockIds.FromBiome(cellBiome);
+
+                column.CopyLowerLayersFrom(geologyTemplate, crustTop);
+                FillTerrainColumn(column, crustTop, surfaceHeight, blocks.Bedrock);
+                CarveCaves(column, cell.Normal, cellBiome, coreEnd, surfaceHeight);
+                ApplySurfaceBlocks(
+                    column,
+                    surfaceHeight,
+                    seaLevel,
+                    crustTop,
+                    cellBiome.DirtDepth,
+                    blocks.Grass,
+                    blocks.Dirt,
+                    blocks.Sand,
+                    blocks.Bedrock);
+                FillWater(column, surfaceHeight, seaLevel, blocks.Water);
+
+                if (i % progressStride == 0 || i == cellCount - 1)
+                {
+                    reportProgress?.Invoke(0.52f + 0.38f * (i + 1) / cellCount, "Filling columns…");
                 }
 
-                reportProgress?.Invoke(0.52f + 0.38f * end / cellCount, "Filling columns…");
-                yield return null;
+                if (frameBudget.ShouldYield())
+                {
+                    yield return null;
+                    frameBudget.MarkYield();
+                }
             }
 
             reportProgress?.Invoke(0.92f, "Terrain generation complete.");

@@ -16,7 +16,7 @@ MonoBehaviour:
   seed: 42
   biomeCatalog: {fileID: 11400000, guid: c4d5e6f7a8490123456789abcdef1234, type: 2}
   biome: {fileID: 11400000, guid: 6b722c65e3ce03d4e8645410a755301f, type: 2}
-  cellsPerChunk: 512
+  cellsPerChunk: 2048
   planetRadiusScale: 4
   blockSize: 1
   playerEyeHeight: 1.7
@@ -29,3 +29,5 @@ MonoBehaviour:
   axisTiltDegrees: 23.5
   sunDistanceMultiplier: 50
   sunAngularSize: 1.2
+  buildFrameBudgetMs: 16
+  createTerrainColliders: 1

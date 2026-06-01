@@ -42,6 +42,7 @@ namespace Voxels.Runtime
         bool cursorLocked;
 
         public bool HasSpawned => spawnedCellIndex >= 0;
+        public bool IsOrbitMode => orbitMode;
 
         void Start()
         {

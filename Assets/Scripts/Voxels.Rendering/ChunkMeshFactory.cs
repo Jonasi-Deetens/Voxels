@@ -22,6 +22,7 @@ namespace Voxels.Rendering
             }
 
             mesh.RecalculateBounds();
+            mesh.UploadMeshData(true);
             return mesh;
         }
 

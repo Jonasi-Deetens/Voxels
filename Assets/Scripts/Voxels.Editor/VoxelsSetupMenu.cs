@@ -137,7 +137,7 @@ namespace Voxels.EditorTools
             planetObject.FindProperty("seed").intValue = 42;
             planetObject.FindProperty("biomeCatalog").objectReferenceValue = catalog;
             planetObject.FindProperty("biome").objectReferenceValue = grassland;
-            planetObject.FindProperty("cellsPerChunk").intValue = 512;
+            planetObject.FindProperty("cellsPerChunk").intValue = 2048;
             planetObject.FindProperty("planetRadiusScale").floatValue = 4f;
             planetObject.FindProperty("blockSize").floatValue = 1f;
             planetObject.FindProperty("playerEyeHeight").floatValue = 1.7f;
@@ -150,11 +150,13 @@ namespace Voxels.EditorTools
             planetObject.FindProperty("axisTiltDegrees").floatValue = 23.5f;
             planetObject.FindProperty("sunDistanceMultiplier").floatValue = 50f;
             planetObject.FindProperty("sunAngularSize").floatValue = 1.2f;
+            planetObject.FindProperty("buildFrameBudgetMs").floatValue = 16f;
+            planetObject.FindProperty("createTerrainColliders").boolValue = true;
             planetObject.ApplyModifiedPropertiesWithoutUndo();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("Voxels default content created: 13 biomes, BiomeCatalog, scale=4, cellsPerChunk=512.");
+            Debug.Log("Voxels default content created: 13 biomes, BiomeCatalog, scale=4, cellsPerChunk=2048.");
         }
 
         [MenuItem("Voxels/Setup Sample Scene")]

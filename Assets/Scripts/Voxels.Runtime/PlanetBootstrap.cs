@@ -19,6 +19,7 @@ namespace Voxels.Runtime
 
         PlanetWorld planetWorld;
         PlayerAnchor playerAnchor;
+        SurfacePlayerController playerController;
         CelestialSystem celestialSystem;
         bool buildComplete;
 
@@ -73,11 +74,19 @@ namespace Voxels.Runtime
                 surfaceCamera.enabled = false;
             }
 
+            if (playerController != null)
+            {
+                playerController.enabled = false;
+            }
+
             ClearChunks();
             transform.localPosition = Vector3.zero;
             transform.localRotation = Quaternion.identity;
 
             BlockRegistry registry = BlockRegistryBuilder.Build(settings, blockDefinitions);
+            overlay.Report(0.01f, "Building planet grid…");
+            yield return null;
+
             planetWorld = new PlanetWorld(settings, registry);
 
             var generator = new PlanetLayerGenerator(settings);
@@ -94,7 +103,8 @@ namespace Voxels.Runtime
 
             int chunkCount = 0;
             int waterVertices = 0;
-            int meshBatch = 0;
+            var frameBudget = new BuildFrameBudget(settings.BuildFrameBudgetMs);
+            var builtChunks = new List<(GameObject chunkObject, Mesh mesh)>(chunkGroups.Length);
 
             for (int i = 0; i < chunkGroups.Length; i++)
             {
@@ -107,21 +117,41 @@ namespace Voxels.Runtime
 
                     var meshFilter = chunkObject.AddComponent<MeshFilter>();
                     var meshRenderer = chunkObject.AddComponent<MeshRenderer>();
-                    var meshCollider = chunkObject.AddComponent<MeshCollider>();
 
                     Mesh mesh = ChunkMeshFactory.CreateMesh(meshData);
                     meshFilter.sharedMesh = mesh;
                     meshRenderer.sharedMaterials = ChunkMeshFactory.GetMaterials(meshData);
-                    meshCollider.sharedMesh = mesh;
+                    builtChunks.Add((chunkObject, mesh));
                 }
 
-                meshBatch++;
-                if (meshBatch >= 8)
+                float meshProgress = 0.92f + 0.04f * (i + 1) / chunkGroups.Length;
+                overlay.Report(meshProgress, $"Meshing chunk {i + 1}/{chunkGroups.Length}…");
+
+                if (frameBudget.ShouldYield())
                 {
-                    meshBatch = 0;
-                    float meshProgress = 0.92f + 0.06f * (i + 1) / chunkGroups.Length;
-                    overlay.Report(meshProgress, $"Meshing chunk {i + 1}/{chunkGroups.Length}…");
                     yield return null;
+                    frameBudget.MarkYield();
+                }
+            }
+
+            if (settings.CreateTerrainColliders)
+            {
+                overlay.Report(0.96f, "Building collision…");
+                yield return null;
+
+                for (int i = 0; i < builtChunks.Count; i++)
+                {
+                    (GameObject chunkObject, Mesh mesh) = builtChunks[i];
+                    AttachMeshCollider(chunkObject, mesh);
+
+                    float colliderProgress = 0.96f + 0.02f * (i + 1) / builtChunks.Count;
+                    overlay.Report(colliderProgress, $"Collision {i + 1}/{builtChunks.Count}…");
+
+                    if (frameBudget.ShouldYield())
+                    {
+                        yield return null;
+                        frameBudget.MarkYield();
+                    }
                 }
             }
 
@@ -167,6 +197,16 @@ namespace Voxels.Runtime
             {
                 surfaceCamera.enabled = true;
             }
+
+            if (playerController != null)
+            {
+                playerController.enabled = true;
+                var characterController = playerController.GetComponent<CharacterController>();
+                if (characterController != null)
+                {
+                    characterController.enabled = true;
+                }
+            }
         }
 
         void SetupCelestialSystem()
@@ -204,6 +244,52 @@ namespace Voxels.Runtime
                 surfaceCamera.transform.SetParent(anchorTransform, false);
                 surfaceCamera.TrySpawnOnSurface(allowDuringBuild: true);
             }
+
+            DetachPlayerFromPlanetSpin(anchorTransform, transform);
+            EnsurePlayerController(anchorTransform.gameObject, surfaceCamera);
+        }
+
+        static void DetachPlayerFromPlanetSpin(Transform anchorTransform, Transform planetTransform)
+        {
+            if (planetTransform == null)
+            {
+                return;
+            }
+
+            var rigObject = GameObject.Find("PlayerRig");
+            if (rigObject == null)
+            {
+                rigObject = new GameObject("PlayerRig");
+            }
+
+            Transform rigTransform = rigObject.transform;
+            rigTransform.SetPositionAndRotation(planetTransform.position, Quaternion.identity);
+            if (anchorTransform.parent != rigTransform)
+            {
+                anchorTransform.SetParent(rigTransform, true);
+            }
+        }
+
+        void EnsurePlayerController(GameObject anchorObject, SurfaceSpawnCamera surfaceCamera)
+        {
+            var characterController = anchorObject.GetComponent<CharacterController>();
+            if (characterController == null)
+            {
+                characterController = anchorObject.AddComponent<CharacterController>();
+            }
+
+            playerController = anchorObject.GetComponent<SurfacePlayerController>();
+            if (playerController == null)
+            {
+                playerController = anchorObject.AddComponent<SurfacePlayerController>();
+            }
+
+            playerController.Initialize(
+                planetWorld,
+                transform,
+                surfaceCamera != null ? surfaceCamera.transform : null,
+                surfaceCamera);
+            playerController.enabled = false;
         }
 
         void ClearChunks()
@@ -226,6 +312,13 @@ namespace Voxels.Runtime
                     DestroyImmediate(child.gameObject);
                 }
             }
+        }
+
+        static void AttachMeshCollider(GameObject chunkObject, Mesh mesh)
+        {
+            var meshCollider = chunkObject.AddComponent<MeshCollider>();
+            meshCollider.sharedMesh = mesh;
+            meshCollider.cookingOptions = MeshColliderCookingOptions.CookForFasterSimulation;
         }
     }
 }

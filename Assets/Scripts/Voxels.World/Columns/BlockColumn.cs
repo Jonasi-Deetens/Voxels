@@ -27,6 +27,17 @@ namespace Voxels.World
             layers[layer] = blockId;
         }
 
+        public void CopyLowerLayersFrom(BlockColumn source, int layerCount)
+        {
+            if (source == null || layerCount <= 0)
+            {
+                return;
+            }
+
+            EnsureCapacity(layerCount);
+            System.Array.Copy(source.layers, 0, layers, 0, layerCount);
+        }
+
         public BlockId GetBlock(int layer)
         {
             if (layer < 0 || layer >= layers.Length)

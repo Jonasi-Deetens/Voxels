@@ -10,7 +10,8 @@ namespace Voxels.World
         [SerializeField] int seed = 42;
         [SerializeField] BiomeCatalog biomeCatalog;
         [SerializeField] BiomeDefinition biome;
-        [SerializeField] int cellsPerChunk = 512;
+        [Tooltip("More cells per chunk = fewer meshes and colliders to build.")]
+        [SerializeField] int cellsPerChunk = 2048;
         [Tooltip("Scales planet radius while keeping 1-block hex spacing (2 = double radius, adds one icosphere subdivision step).")]
         [SerializeField] float planetRadiusScale = 4f;
 
@@ -34,6 +35,11 @@ namespace Voxels.World
         [Tooltip("Apparent diameter of the sun disc in degrees (real sun ≈ 0.5°).")]
         [SerializeField] float sunAngularSize = 1.2f;
 
+        [Header("Build Performance")]
+        [Tooltip("Milliseconds of generation/mesh work before yielding a frame.")]
+        [SerializeField] float buildFrameBudgetMs = 16f;
+        [SerializeField] bool createTerrainColliders = true;
+
         public int SubdivisionLevel => subdivisionLevel;
         public float PlanetRadiusScale => planetRadiusScale;
         public int Seed => seed;
@@ -51,6 +57,8 @@ namespace Voxels.World
         public float AxisTiltDegrees => axisTiltDegrees;
         public float SunDistanceMultiplier => sunDistanceMultiplier;
         public float SunAngularSize => sunAngularSize;
+        public float BuildFrameBudgetMs => buildFrameBudgetMs;
+        public bool CreateTerrainColliders => createTerrainColliders;
 
         public int CrustTopLayer => coreLayerCount + mantleLayerCount + crustLayerCount;
 

@@ -5,6 +5,7 @@ using Voxels.World;
 
 namespace Voxels.Runtime
 {
+    [DefaultExecutionOrder(-10)]
     public sealed class CelestialSystem : MonoBehaviour
     {
         const string UrpUnlitShaderName = "Universal Render Pipeline/Unlit";
@@ -13,6 +14,8 @@ namespace Voxels.Runtime
         const float SunEmissionIntensity = 6f;
 
         [SerializeField] Transform planetTransform;
+        [Tooltip("Spin the planet mesh with the day/night cycle. The player is carried with the rotation.")]
+        [SerializeField] bool rotatePlanetWithDayCycle = true;
 
         Transform skyRoot;
         Transform sunVisual;
@@ -65,7 +68,7 @@ namespace Voxels.Runtime
         {
             float spinAngle = normalizedTime * 360f;
             float3 spinAxis = settings.ResolveSpinAxis();
-            if (planetTransform != null)
+            if (rotatePlanetWithDayCycle && planetTransform != null)
             {
                 planetTransform.rotation = Quaternion.AngleAxis(spinAngle, (Vector3)spinAxis);
             }

@@ -12,11 +12,16 @@ namespace Voxels.Runtime
 
         public void Configure(int cellIndex, float3 surfaceUp, float surfaceRadius)
         {
+            TrackSurface(cellIndex, surfaceUp, surfaceRadius);
+            transform.localPosition = (Vector3)(SurfaceUp * SurfaceRadius);
+            transform.localRotation = Quaternion.FromToRotation(Vector3.up, (Vector3)SurfaceUp);
+        }
+
+        public void TrackSurface(int cellIndex, float3 surfaceUp, float surfaceRadius)
+        {
             SpawnCellIndex = cellIndex;
             SurfaceUp = math.normalize(surfaceUp);
             SurfaceRadius = surfaceRadius;
-            transform.localPosition = (Vector3)(SurfaceUp * SurfaceRadius);
-            transform.localRotation = Quaternion.FromToRotation(Vector3.up, (Vector3)SurfaceUp);
         }
     }
 }
