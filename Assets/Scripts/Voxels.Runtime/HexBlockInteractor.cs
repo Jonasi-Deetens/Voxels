@@ -88,7 +88,11 @@ namespace Voxels.Runtime
 
             if (GameInput.WasSecondaryPressedThisFrame())
             {
-                if (TryGetTarget(true, out HexBlockTarget placeTarget))
+                if (toolState != null && toolState.ActiveTool == PlayerToolMode.Bucket)
+                {
+                    TryUseBucket();
+                }
+                else if (TryGetTarget(true, out HexBlockTarget placeTarget))
                 {
                     TryPlaceBlock(placeTarget);
                 }

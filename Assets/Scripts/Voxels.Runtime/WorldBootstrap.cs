@@ -155,7 +155,7 @@ namespace Voxels.Runtime
                 blockFeedback,
                 toolState,
                 playerInventory);
-            saveSystem.Initialize(hexWorld, settings, chunkManager, worldScroller, blockHotbar, toolState, playerInventory, player);
+            saveSystem.Initialize(hexWorld, settings, chunkManager, worldScroller, blockHotbar, toolState, playerInventory, player, playerHealth, weatherSystem);
             gameHud.Initialize(worldScroller, chunkManager, celestialSystem, blockHotbar, toolState, runtimeProfiler, settings, blockInteractor, playerInventory);
             biomeAmbience.Initialize(worldScroller, celestialSystem);
             Transform weatherFollow = spawnCamera != null ? spawnCamera.transform : player;
@@ -167,9 +167,13 @@ namespace Voxels.Runtime
                 skyClouds,
                 skyController,
                 biomeAmbience,
-                weatherParticles);
-            nightSpawner.Initialize(worldScroller, settings);
+                weatherParticles,
+                weatherAudio);
+            nightSpawner.Initialize(worldScroller, settings, player);
             dayNight.Initialize(celestialSystem, nightSpawner);
+            craftingHud.Initialize(craftingSystem);
+            settingsMenu.Initialize(settings, weatherSystem, skyClouds, skyController);
+            weatherAudio.Initialize();
             GrantStarterInventory(playerInventory, registry);
 
             if (spawnCamera != null)
@@ -238,6 +242,12 @@ namespace Voxels.Runtime
             }
 
             playerController.SnapToGround();
+            playerHealth = player.GetComponent<PlayerHealth>();
+            if (playerHealth == null)
+            {
+                playerHealth = player.gameObject.AddComponent<PlayerHealth>();
+            }
+
             playerController.enabled = true;
 
             PickupCollector pickupCollector = player.GetComponent<PickupCollector>();

@@ -123,6 +123,8 @@ namespace Voxels.Runtime
 
         public static bool WasCraftPressedThisFrame() => WasKeyPressed(KeyCode.G);
 
+        public static bool WasSettingsMenuPressedThisFrame() => WasKeyPressed(KeyCode.Escape);
+
         public static bool WasHotbarSlotPressed(int index)
         {
             if (index < 0 || index > 8)
@@ -161,6 +163,7 @@ namespace Voxels.Runtime
                 KeyCode.F6 => keyboard.f6Key.wasPressedThisFrame,
                 KeyCode.G => keyboard.gKey.wasPressedThisFrame,
                 KeyCode.T => keyboard.tKey.wasPressedThisFrame,
+                KeyCode.Escape => keyboard.escapeKey.wasPressedThisFrame,
                 KeyCode.Alpha1 => keyboard.digit1Key.wasPressedThisFrame,
                 KeyCode.Alpha2 => keyboard.digit2Key.wasPressedThisFrame,
                 KeyCode.Alpha3 => keyboard.digit3Key.wasPressedThisFrame,

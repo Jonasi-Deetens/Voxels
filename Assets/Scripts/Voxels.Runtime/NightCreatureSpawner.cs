@@ -7,30 +7,28 @@ namespace Voxels.Runtime
 {
   public sealed class NightCreatureSpawner : MonoBehaviour
   {
-    [SerializeField] int maxCreatures = 12;
-    [SerializeField] float spawnRadius = 24f;
-    [SerializeField] float spawnInterval = 4f;
+    [SerializeField] int maxCreatures = 10;
+    [SerializeField] float spawnRadius = 22f;
+    [SerializeField] float spawnInterval = 5f;
+    [SerializeField] float contactDamage = 4f;
 
-    readonly List<GameObject> activeCreatures = new List<GameObject>();
+    readonly List<NightCreatureBehaviour> activeCreatures = new List<NightCreatureBehaviour>();
 
     WorldScroller scroller;
     WorldSettings settings;
+    Transform playerTransform;
     float spawnTimer;
 
-    public void Initialize(WorldScroller worldScroller, WorldSettings worldSettings)
+    public void Initialize(WorldScroller worldScroller, WorldSettings worldSettings, Transform player)
     {
       scroller = worldScroller;
       settings = worldSettings;
+      playerTransform = player;
     }
 
     public void Tick(bool isNight, int lightLevel)
     {
-      if (!isNight)
-      {
-        return;
-      }
-
-      if (scroller?.HexWorld == null)
+      if (!isNight || scroller?.HexWorld == null)
       {
         return;
       }
@@ -57,7 +55,7 @@ namespace Voxels.Runtime
       {
         if (activeCreatures[i] != null)
         {
-          Destroy(activeCreatures[i]);
+          Destroy(activeCreatures[i].gameObject);
         }
       }
 
@@ -68,49 +66,61 @@ namespace Voxels.Runtime
     {
       HexCoord playerHex = scroller.PlayerWorldHex;
       Vector2 offset = Random.insideUnitCircle * spawnRadius;
-      float surfaceY = scroller.HexWorld.GetSurfaceWorldY(playerHex) + 1.2f;
+      float surfaceY = scroller.HexWorld.GetSurfaceWorldY(playerHex) + 1.1f;
       Transform worldRoot = scroller.WorldRoot;
       Vector3 local = new Vector3(offset.x, surfaceY, offset.y);
       Vector3 spawnPos = worldRoot != null ? worldRoot.TransformPoint(local) : local;
 
-      var creature = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-      creature.name = $"NightCreature_{biome.name}";
+      var creature = new GameObject($"NightCreature_{biome.name}");
       creature.transform.position = spawnPos;
-      creature.transform.localScale = new Vector3(0.45f, 0.55f, 0.45f);
+      BuildCreatureMesh(creature, biome);
 
-      var renderer = creature.GetComponent<Renderer>();
-      if (renderer != null)
-      {
-        renderer.material.color = biome.NightAmbientColor * 1.4f;
-      }
+      var collider = creature.AddComponent<CapsuleCollider>();
+      collider.height = 1.2f;
+      collider.radius = 0.35f;
+      collider.isTrigger = true;
 
-      var collider = creature.GetComponent<CapsuleCollider>();
-      if (collider != null)
-      {
-        collider.isTrigger = true;
-      }
-
-      var rb = creature.AddComponent<Rigidbody>();
-      rb.useGravity = false;
-      creature.AddComponent<NightCreatureLifetime>().Initialize(this, 18f);
-      activeCreatures.Add(creature);
+      var behaviour = creature.AddComponent<NightCreatureBehaviour>();
+      behaviour.Initialize(this, playerTransform, contactDamage, 22f);
+      activeCreatures.Add(behaviour);
     }
 
-    internal void NotifyDespawned(GameObject creature)
+    static void BuildCreatureMesh(GameObject root, BiomeDefinition biome)
     {
-      activeCreatures.Remove(creature);
+      Color bodyColor = biome.NightAmbientColor * 1.6f;
+      var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+      body.name = "Body";
+      body.transform.SetParent(root.transform, false);
+      body.transform.localScale = new Vector3(0.5f, 0.65f, 0.5f);
+      Object.Destroy(body.GetComponent<Collider>());
+      body.GetComponent<Renderer>().material.color = bodyColor;
+
+      var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+      head.name = "Head";
+      head.transform.SetParent(root.transform, false);
+      head.transform.localPosition = new Vector3(0f, 0.75f, 0f);
+      head.transform.localScale = Vector3.one * 0.32f;
+      Object.Destroy(head.GetComponent<Collider>());
+      head.GetComponent<Renderer>().material.color = bodyColor * 0.85f;
     }
+
+    internal void NotifyDespawned(NightCreatureBehaviour creature) => activeCreatures.Remove(creature);
   }
 
-  sealed class NightCreatureLifetime : MonoBehaviour
+  public sealed class NightCreatureBehaviour : MonoBehaviour
   {
     NightCreatureSpawner spawner;
-    float life;
+    Transform player;
+    float damage;
+    float speed;
+    float life = 24f;
 
-    public void Initialize(NightCreatureSpawner owner, float seconds)
+    public void Initialize(NightCreatureSpawner owner, Transform playerTarget, float contactDamage, float moveSpeed)
     {
       spawner = owner;
-      life = seconds;
+      player = playerTarget;
+      damage = contactDamage;
+      speed = moveSpeed;
     }
 
     void Update()
@@ -118,9 +128,38 @@ namespace Voxels.Runtime
       life -= Time.deltaTime;
       if (life <= 0f)
       {
-        spawner?.NotifyDespawned(gameObject);
-        Destroy(gameObject);
+        Despawn();
+        return;
       }
+
+      if (player == null)
+      {
+        return;
+      }
+
+      Vector3 toPlayer = player.position - transform.position;
+      toPlayer.y = 0f;
+      if (toPlayer.sqrMagnitude > 0.5f)
+      {
+        Vector3 step = toPlayer.normalized * (speed * Time.deltaTime);
+        transform.position += step;
+        transform.rotation = Quaternion.LookRotation(toPlayer.normalized, Vector3.up);
+      }
+    }
+
+    void OnTriggerStay(Collider other)
+    {
+      if (player != null && other.transform == player)
+      {
+        PlayerHealth health = player.GetComponent<PlayerHealth>();
+        health?.TakeDamage(damage * Time.deltaTime);
+      }
+    }
+
+    void Despawn()
+    {
+      spawner?.NotifyDespawned(this);
+      Destroy(gameObject);
     }
   }
 }

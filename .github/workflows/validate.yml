@@ -1,0 +1,54 @@
+name: Validate
+
+on:
+  push:
+    branches: [main, 'cursor/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  structure-and-asmdefs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Unity asmdef JSON
+        run: |
+          python3 << 'PY'
+          import json, glob, sys
+          errors = []
+          for path in glob.glob("Assets/**/*.asmdef", recursive=True):
+              try:
+                  with open(path) as f:
+                      json.load(f)
+              except Exception as e:
+                  errors.append(f"{path}: {e}")
+          if errors:
+              print("\n".join(errors))
+              sys.exit(1)
+          print(f"OK: {len(glob.glob('Assets/**/*.asmdef', recursive=True))} asmdefs")
+          PY
+
+      - name: Verify required gameplay scripts exist
+        run: |
+          test -f Assets/Scripts/Voxels.Runtime/WorldBootstrap.cs
+          test -f Assets/Scripts/Voxels.Runtime/WeatherSystem.cs
+          test -f Assets/Scripts/Voxels.Runtime/ChunkMeshPool.cs
+          test -f docs/QA_CHECKLIST.md
+          echo "Core scripts present"
+
+  unity-editmode-tests:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.UNITY_LICENSE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          unityVersion: 6000.4.9f1
+          testMode: editmode
+          projectPath: .

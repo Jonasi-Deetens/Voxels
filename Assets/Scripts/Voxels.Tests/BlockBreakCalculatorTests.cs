@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using UnityEngine;
 using Voxels.Runtime;
 using Voxels.World;
 
@@ -7,14 +8,24 @@ namespace Voxels.Tests
     public sealed class BlockBreakCalculatorTests
     {
         [Test]
-        public void Pickaxe_breaks_stone_faster_than_hand()
+        public void Iron_pickaxe_breaks_stone_faster_than_hand()
         {
             var stone = ScriptableObject.CreateInstance<BlockDefinition>();
             SetCategory(stone, BlockMaterialCategory.Stone, 0.5f);
 
             float hand = BlockBreakCalculator.GetBreakDuration(stone, PlayerToolMode.Hand, false);
-            float pick = BlockBreakCalculator.GetBreakDuration(stone, PlayerToolMode.Pickaxe, false);
+            float pick = BlockBreakCalculator.GetBreakDuration(stone, PlayerToolMode.IronPickaxe, false);
             Assert.Less(pick, hand);
+        }
+
+        [Test]
+        public void Wooden_pickaxe_slower_than_iron_on_stone()
+        {
+            var stone = ScriptableObject.CreateInstance<BlockDefinition>();
+            SetCategory(stone, BlockMaterialCategory.Stone, 0.5f);
+            float wood = BlockBreakCalculator.GetBreakDuration(stone, PlayerToolMode.WoodenPickaxe, false);
+            float iron = BlockBreakCalculator.GetBreakDuration(stone, PlayerToolMode.IronPickaxe, false);
+            Assert.Less(iron, wood);
         }
 
         [Test]
@@ -28,8 +39,6 @@ namespace Voxels.Tests
         static void SetCategory(BlockDefinition block, BlockMaterialCategory category, float breakTime)
         {
             var type = typeof(BlockDefinition);
-            type.GetProperty("MaterialCategory");
-            // Use serialized fields via reflection for test instance without inspector
             var categoryField = type.GetField("materialCategory", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var breakField = type.GetField("breakTime", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             categoryField?.SetValue(block, category);

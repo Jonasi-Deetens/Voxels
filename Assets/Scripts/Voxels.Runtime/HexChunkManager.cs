@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Voxels.Core.Hex;
 using Voxels.Rendering;
+
 using Voxels.World;
 using Voxels.World.Generation;
 
@@ -38,6 +39,7 @@ namespace Voxels.Runtime
         FlatHexBlockMeshBuilder blockMeshBuilder;
         FlatHexColumnMeshBuilder columnMeshBuilder;
         FlatWaterMeshBuilder waterMeshBuilder;
+        readonly ChunkMeshPool meshPool = new ChunkMeshPool();
         WorldRuntimeProfiler runtimeProfiler;
         WorldRegionLoader regionLoader;
         HexCoord lastPlayerHex = new HexCoord(int.MinValue, int.MinValue);
@@ -102,6 +104,7 @@ namespace Voxels.Runtime
 
         public void ClearAll()
         {
+            meshPool.Clear();
             meshQueue.Clear();
             var chunks = new List<ChunkCoord>(loadedChunks.Keys);
             for (int i = 0; i < chunks.Count; i++)
@@ -426,14 +429,14 @@ namespace Voxels.Runtime
             }
         }
 
-        static void ReplaceMesh(ref Mesh mesh, ChunkMeshData data)
+        void ReplaceMesh(ref Mesh mesh, ChunkMeshData data)
         {
             if (mesh != null)
             {
-                Destroy(mesh);
+                meshPool.Return(mesh);
             }
 
-            mesh = ChunkMeshFactory.CreateMesh(data);
+            mesh = meshPool.Rent(data);
         }
 
         void UnloadChunkMeshes(ChunkCoord chunk)

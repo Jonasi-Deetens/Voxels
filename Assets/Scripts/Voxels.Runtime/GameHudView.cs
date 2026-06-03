@@ -259,6 +259,8 @@ namespace Voxels.Runtime
       int light = dayNight != null ? dayNight.LightLevel : 15;
       WeatherSystem weather = FindAnyObjectByType<WeatherSystem>();
       string weatherLine = weather != null ? $"Weather {weather.Snapshot.Kind}  precip {weather.Snapshot.Precipitation:0.00}" : string.Empty;
+      PlayerHealth playerHealth = FindAnyObjectByType<PlayerHealth>();
+      string healthLine = playerHealth != null ? $"Health {playerHealth.Health:0}/{playerHealth.MaxHealth:0}" : string.Empty;
 
       debugText.text =
         $"Debug (F3)\n" +
@@ -266,6 +268,7 @@ namespace Voxels.Runtime
         $"Edge {scroller.HexWorld.DistanceToEdge(hex)}  cache {scroller.HexWorld.DataCache.CachedCellCount}\n" +
         $"Chunks {chunkManager?.LoadedChunkCount}  queue {chunkManager?.PendingMeshJobs}\n" +
         $"Sun {celestial?.SunHeight:0.00}  TOD {celestial?.TimeOfDay:0.00}  light {light}\n" +
+        $"{healthLine}\n" +
         $"{weatherLine}\n" +
         $"{perf}\n" +
         $"LMB break | RMB place | MMB pick | T tool | G craft | F5/F6 save";

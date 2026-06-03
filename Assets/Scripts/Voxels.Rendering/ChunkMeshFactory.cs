@@ -8,6 +8,22 @@ namespace Voxels.Rendering
         public static Mesh CreateMesh(ChunkMeshData data)
         {
             var mesh = new Mesh { name = "WorldChunk" };
+            ApplyData(mesh, data);
+            return mesh;
+        }
+
+        public static void UpdateMesh(Mesh mesh, ChunkMeshData data)
+        {
+            if (mesh == null)
+            {
+                return;
+            }
+
+            ApplyData(mesh, data);
+        }
+
+        static void ApplyData(Mesh mesh, ChunkMeshData data)
+        {
             mesh.indexFormat = data.Vertices.Count > 65535
                 ? UnityEngine.Rendering.IndexFormat.UInt32
                 : UnityEngine.Rendering.IndexFormat.UInt16;
@@ -22,8 +38,7 @@ namespace Voxels.Rendering
             }
 
             mesh.RecalculateBounds();
-            mesh.UploadMeshData(true);
-            return mesh;
+            mesh.UploadMeshData(false);
         }
 
         public static Material[] GetMaterials(ChunkMeshData data)

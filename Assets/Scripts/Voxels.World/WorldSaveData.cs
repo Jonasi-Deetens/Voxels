@@ -6,7 +6,7 @@ namespace Voxels.World
     [Serializable]
     public sealed class WorldSaveData
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         public int version = CurrentVersion;
         public int seed;
@@ -15,6 +15,10 @@ namespace Voxels.World
         public float playerY;
         public int hotbarIndex;
         public int activeTool;
+        public int weatherKind;
+        public int weatherTargetKind;
+        public float weatherTransition;
+        public float playerHealth = 20f;
         public List<SavedBiome> biomes = new();
         public List<SavedColumn> columns = new();
     }

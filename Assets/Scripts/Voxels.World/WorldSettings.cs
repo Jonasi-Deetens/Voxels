@@ -98,6 +98,12 @@ namespace Voxels.World
         public bool UseGreedyColumnMeshing => useGreedyColumnMeshing;
         public bool UseBackgroundMeshBuild => useBackgroundMeshBuild;
 
+        public void SetPerformancePreset(WorldPerformancePreset preset)
+        {
+            performancePreset = preset;
+            ApplyPerformancePreset();
+        }
+
         public void ApplyPerformancePreset()
         {
             switch (performancePreset)

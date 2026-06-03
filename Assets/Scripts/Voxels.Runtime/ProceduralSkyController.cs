@@ -1,11 +1,9 @@
 using UnityEngine;
 using Voxels.World;
+using Voxels.World.Climate;
 
 namespace Voxels.Runtime
 {
-    /// <summary>
-    /// Drives procedural skybox tint/exposure and optional distance fog from sun height.
-    /// </summary>
     public sealed class ProceduralSkyController : MonoBehaviour
     {
         static readonly int SkyTintId = Shader.PropertyToID("_SkyTint");
@@ -21,11 +19,15 @@ namespace Voxels.Runtime
         [SerializeField] float nightExposure = 0.35f;
         [SerializeField] float dayFogDensity = 0.0018f;
         [SerializeField] float nightFogDensity = 0.0035f;
+        [SerializeField] float lightningFlashInterval = 7f;
 
         Material skyMaterial;
         CelestialSystem celestial;
         WorldSettings settings;
         WeatherSnapshot weatherSnapshot = WeatherSnapshot.Clear;
+        float lightningTimer;
+        float flashStrength;
+        bool fogEnabled = true;
 
         public void Initialize(CelestialSystem celestialSystem, WorldSettings worldSettings)
         {
@@ -33,6 +35,10 @@ namespace Voxels.Runtime
             settings = worldSettings;
             EnsureSkyMaterial();
         }
+
+        public void ApplyWeather(in WeatherSnapshot snapshot) => weatherSnapshot = snapshot;
+
+        public void SetFogEnabled(bool enabled) => fogEnabled = enabled;
 
         void LateUpdate()
         {
@@ -42,13 +48,16 @@ namespace Voxels.Runtime
             }
 
             float sunHeight = celestial.SunHeight;
-            float skyDim = 1f - weatherSnapshot.SkyDimming;
-            skyMaterial.SetColor(SkyTintId, Color.Lerp(nightSkyTint, daySkyTint, sunHeight) * skyDim);
-            skyMaterial.SetFloat(ExposureId, Mathf.Lerp(nightExposure, dayExposure, sunHeight));
+            UpdateLightning();
+
+            float skyDim = (1f - weatherSnapshot.SkyDimming) * (1f - flashStrength * 0.35f);
+            Color skyTint = Color.Lerp(nightSkyTint, daySkyTint, sunHeight) * skyDim;
+            skyMaterial.SetColor(SkyTintId, skyTint);
+            skyMaterial.SetFloat(ExposureId, Mathf.Lerp(nightExposure, dayExposure, sunHeight) + flashStrength * 0.4f);
             skyMaterial.SetFloat(AtmosphereThicknessId, Mathf.Lerp(0.65f, 1.05f, sunHeight));
             skyMaterial.SetFloat(SunSizeId, Mathf.Lerp(0.02f, 0.05f, sunHeight));
 
-            if (settings != null && settings.EnableDistanceFog)
+            if (settings != null && settings.EnableDistanceFog && fogEnabled)
             {
                 RenderSettings.fog = true;
                 RenderSettings.fogMode = FogMode.ExponentialSquared;
@@ -56,6 +65,25 @@ namespace Voxels.Runtime
                 float baseFog = Mathf.Lerp(nightFogDensity, dayFogDensity, sunHeight);
                 RenderSettings.fogDensity = baseFog * weatherSnapshot.FogMultiplier;
             }
+
+            flashStrength = Mathf.MoveTowards(flashStrength, 0f, Time.deltaTime * 3.5f);
+        }
+
+        void UpdateLightning()
+        {
+            if (weatherSnapshot.Kind != WeatherKind.Storm)
+            {
+                return;
+            }
+
+            lightningTimer -= Time.deltaTime;
+            if (lightningTimer > 0f)
+            {
+                return;
+            }
+
+            lightningTimer = lightningFlashInterval * Random.Range(0.45f, 1.1f);
+            flashStrength = Random.Range(0.55f, 1f);
         }
 
         void EnsureSkyMaterial()
@@ -65,12 +93,7 @@ namespace Voxels.Runtime
                 return;
             }
 
-            Shader shader = Shader.Find("Skybox/Procedural");
-            if (shader == null)
-            {
-                shader = Shader.Find("Skybox/Gradient");
-            }
-
+            Shader shader = Shader.Find("Skybox/Procedural") ?? Shader.Find("Skybox/Gradient");
             if (shader == null)
             {
                 return;
@@ -89,6 +112,3 @@ namespace Voxels.Runtime
         }
     }
 }
-
-
-        public void ApplyWeather(in WeatherSnapshot snapshot) => weatherSnapshot = snapshot;

@@ -17,3 +17,11 @@
 - **Water**: `WaterSpreadUtility` runs at generation; `WaterFlowUtility.SettleAround` runs only on player edits (cheap local settle).
 
 Use the in-game HUD (F3) and `WorldRuntimeProfiler` build summary to watch chunk queue depth and mesh build milliseconds.
+
+
+## In-game settings (Escape)
+
+- **Low / Balanced / High** — updates `WorldSettings` view radius, cache, and mesh build budget (stored in PlayerPrefs).
+- **Distance fog** — toggles fog application in `ProceduralSkyController`.
+- **Weather** — enables/disables `WeatherSystem`.
+- **Dense clouds** — scales active hex cloud count (~1.35×).

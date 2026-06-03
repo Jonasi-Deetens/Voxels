@@ -21,6 +21,8 @@ namespace Voxels.Runtime
         BlockHotbar hotbar;
         PlayerToolState toolState;
         PlayerInventory inventory;
+        PlayerHealth playerHealth;
+        WeatherSystem weatherSystem;
         Transform playerTransform;
 
         public void Initialize(
@@ -31,7 +33,9 @@ namespace Voxels.Runtime
             BlockHotbar blockHotbar,
             PlayerToolState playerTools,
             PlayerInventory playerInventory,
-            Transform player)
+            Transform player,
+            PlayerHealth health = null,
+            WeatherSystem weather = null)
         {
             hexWorld = world;
             settings = worldSettings;
@@ -41,6 +45,8 @@ namespace Voxels.Runtime
             toolState = playerTools;
             inventory = playerInventory;
             playerTransform = player;
+            playerHealth = health;
+            weatherSystem = weather;
         }
 
         void Update()
@@ -86,7 +92,13 @@ namespace Voxels.Runtime
                 playerY = playerTransform != null ? playerTransform.position.y : 0f,
                 hotbarIndex = hotbar != null ? hotbar.SelectedIndex : 0,
                 activeTool = toolState != null ? (int)toolState.ActiveTool : 0,
+                playerHealth = playerHealth != null ? playerHealth.Health : 20f,
             };
+
+            if (weatherSystem != null)
+            {
+                weatherSystem.ExportSaveState(out data.weatherKind, out data.weatherTargetKind, out data.weatherTransition);
+            }
 
             foreach (HexCoord hex in hexWorld.GetDirtyHexes())
             {
@@ -225,7 +237,12 @@ namespace Voxels.Runtime
             }
 
             hotbar?.SelectSlot(data.hotbarIndex);
-            toolState?.SetTool((PlayerToolMode)Mathf.Clamp(data.activeTool, 0, 2));
+            toolState?.SetTool((PlayerToolMode)Mathf.Clamp(data.activeTool, 0, (int)PlayerToolMode.Bucket));
+            playerHealth?.SetHealth(data.playerHealth > 0f ? data.playerHealth : 20f);
+            if (weatherSystem != null && data.version >= 3)
+            {
+                weatherSystem.ImportSaveState(data.weatherKind, data.weatherTargetKind, data.weatherTransition, false);
+            }
         }
 
         void ApplyColumn(SavedColumn saved)

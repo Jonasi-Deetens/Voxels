@@ -22,6 +22,7 @@ namespace Voxels.Runtime
         ProceduralSkyController skyController;
         BiomeAmbienceController biomeAmbience;
         WeatherParticleController particles;
+        WeatherAudioController weatherAudio;
         FlatClimateSampler climateSampler;
 
         WeatherKind targetKind = WeatherKind.Clear;
@@ -34,6 +35,8 @@ namespace Voxels.Runtime
 
         public WeatherSnapshot Snapshot => snapshot;
 
+        public void SetEnabled(bool enabled) => enableWeather = enabled;
+
         public void Initialize(
             WorldScroller worldScroller,
             WorldSettings worldSettings,
@@ -41,7 +44,8 @@ namespace Voxels.Runtime
             HexSkyCloudController clouds,
             ProceduralSkyController proceduralSky,
             BiomeAmbienceController ambience,
-            WeatherParticleController weatherParticles)
+            WeatherParticleController weatherParticles,
+            WeatherAudioController audioController = null)
         {
             Instance = this;
             scroller = worldScroller;
@@ -51,6 +55,7 @@ namespace Voxels.Runtime
             skyController = proceduralSky;
             biomeAmbience = ambience;
             particles = weatherParticles;
+            weatherAudio = audioController;
             climateSampler = new FlatClimateSampler(worldSettings);
             weatherRandom = new Random((uint)math.max(1, worldSettings.Seed) ^ 0x9E47A1C5u);
             changeTimer = weatherRandom.NextFloat(changeIntervalSeconds.x, changeIntervalSeconds.y);
@@ -151,9 +156,30 @@ namespace Voxels.Runtime
             skyController?.ApplyWeather(snapshot);
             particles?.ApplyWeather(snapshot);
             biomeAmbience?.ApplyWeatherVolume(ambientVolume);
+            weatherAudio?.ApplyWeather(snapshot);
         }
 
         static float SmoothStep(float t) => t * t * (3f - 2f * t);
+
+        public void ExportSaveState(out int currentKindId, out int targetKindId, out float transition)
+        {
+            currentKindId = (int)currentKind;
+            targetKindId = (int)targetKind;
+            transition = transitionProgress;
+        }
+
+        public void ImportSaveState(int kind, int target, float transition, bool instant = true)
+        {
+            currentKind = (WeatherKind)Mathf.Clamp(kind, 0, (int)WeatherKind.Fog);
+            targetKind = (WeatherKind)Mathf.Clamp(target, 0, (int)WeatherKind.Fog);
+            transitionProgress = Mathf.Clamp01(transition);
+            if (instant && transitionProgress >= 1f)
+            {
+                currentKind = targetKind;
+            }
+
+            ApplySnapshot(instant);
+        }
 
         static int EstimateCoastDistance(HexWorld world, in HexCoord hex, int seaLevel)
         {

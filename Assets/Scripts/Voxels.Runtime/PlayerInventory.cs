@@ -2,10 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using Voxels.Core.Blocks;
 using Voxels.World;
+using Voxels.World.Crafting;
 
 namespace Voxels.Runtime
 {
-    public sealed class PlayerInventory : MonoBehaviour
+    public sealed class PlayerInventory : MonoBehaviour, PlayerInventoryAccessor
     {
         const int MaxStack = 99;
 

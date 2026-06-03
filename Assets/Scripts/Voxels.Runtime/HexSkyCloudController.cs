@@ -43,6 +43,8 @@ namespace Voxels.Runtime
         Transform playerTransform;
         float windOffset;
         int activeCloudCount;
+        int baseCloudCount;
+        float densityScale = 1f;
         WeatherSnapshot weatherSnapshot = WeatherSnapshot.Clear;
         float weatherWindMultiplier = 1f;
         float weatherAlphaMultiplier = 1f;
@@ -161,7 +163,8 @@ namespace Voxels.Runtime
                 return;
             }
 
-            activeCloudCount = Mathf.Clamp(cloudCount, 0, clouds.Length);
+            baseCloudCount = Mathf.Clamp(cloudCount, 0, clouds.Length);
+            activeCloudCount = baseCloudCount;
             var random = new Unity.Mathematics.Random((uint)math.max(1, settings.Seed) ^ 0xC10Du);
 
             int visibleClouds = Mathf.CeilToInt(activeCloudCount * Mathf.Clamp01(weatherSnapshot.CloudCoverage));
@@ -238,9 +241,6 @@ namespace Voxels.Runtime
                 Destroy(cloudMaterial);
             }
         }
-    }
-}
-
 
         public void ApplyWeather(in WeatherSnapshot snapshot)
         {
@@ -248,3 +248,19 @@ namespace Voxels.Runtime
             weatherWindMultiplier = snapshot.WindMultiplier;
             weatherAlphaMultiplier = Mathf.Lerp(0.35f, 1f, snapshot.CloudCoverage);
         }
+
+        public void SetCloudDensityScale(float scale)
+        {
+            densityScale = Mathf.Clamp(scale, 0.35f, 1.5f);
+            int target = Mathf.Clamp(Mathf.RoundToInt(baseCloudCount * densityScale), 0, clouds.Length);
+            if (target == activeCloudCount)
+            {
+                return;
+            }
+
+            ClearClouds();
+            cloudCount = target;
+            SpawnClouds();
+        }
+    }
+}
