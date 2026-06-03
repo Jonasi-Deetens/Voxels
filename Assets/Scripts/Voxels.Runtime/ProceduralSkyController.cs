@@ -25,6 +25,7 @@ namespace Voxels.Runtime
         Material skyMaterial;
         CelestialSystem celestial;
         WorldSettings settings;
+        WeatherSnapshot weatherSnapshot = WeatherSnapshot.Clear;
 
         public void Initialize(CelestialSystem celestialSystem, WorldSettings worldSettings)
         {
@@ -41,7 +42,8 @@ namespace Voxels.Runtime
             }
 
             float sunHeight = celestial.SunHeight;
-            skyMaterial.SetColor(SkyTintId, Color.Lerp(nightSkyTint, daySkyTint, sunHeight));
+            float skyDim = 1f - weatherSnapshot.SkyDimming;
+            skyMaterial.SetColor(SkyTintId, Color.Lerp(nightSkyTint, daySkyTint, sunHeight) * skyDim);
             skyMaterial.SetFloat(ExposureId, Mathf.Lerp(nightExposure, dayExposure, sunHeight));
             skyMaterial.SetFloat(AtmosphereThicknessId, Mathf.Lerp(0.65f, 1.05f, sunHeight));
             skyMaterial.SetFloat(SunSizeId, Mathf.Lerp(0.02f, 0.05f, sunHeight));
@@ -51,7 +53,8 @@ namespace Voxels.Runtime
                 RenderSettings.fog = true;
                 RenderSettings.fogMode = FogMode.ExponentialSquared;
                 RenderSettings.fogColor = Color.Lerp(nightFogColor, dayFogColor, sunHeight);
-                RenderSettings.fogDensity = Mathf.Lerp(nightFogDensity, dayFogDensity, sunHeight);
+                float baseFog = Mathf.Lerp(nightFogDensity, dayFogDensity, sunHeight);
+                RenderSettings.fogDensity = baseFog * weatherSnapshot.FogMultiplier;
             }
         }
 
@@ -86,3 +89,6 @@ namespace Voxels.Runtime
         }
     }
 }
+
+
+        public void ApplyWeather(in WeatherSnapshot snapshot) => weatherSnapshot = snapshot;

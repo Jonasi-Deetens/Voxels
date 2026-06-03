@@ -257,6 +257,8 @@ namespace Voxels.Runtime
       string perf = profiler != null ? profiler.BuildSummary() : string.Empty;
       DayNightGameplayController dayNight = FindAnyObjectByType<DayNightGameplayController>();
       int light = dayNight != null ? dayNight.LightLevel : 15;
+      WeatherSystem weather = FindAnyObjectByType<WeatherSystem>();
+      string weatherLine = weather != null ? $"Weather {weather.Snapshot.Kind}  precip {weather.Snapshot.Precipitation:0.00}" : string.Empty;
 
       debugText.text =
         $"Debug (F3)\n" +
@@ -264,6 +266,7 @@ namespace Voxels.Runtime
         $"Edge {scroller.HexWorld.DistanceToEdge(hex)}  cache {scroller.HexWorld.DataCache.CachedCellCount}\n" +
         $"Chunks {chunkManager?.LoadedChunkCount}  queue {chunkManager?.PendingMeshJobs}\n" +
         $"Sun {celestial?.SunHeight:0.00}  TOD {celestial?.TimeOfDay:0.00}  light {light}\n" +
+        $"{weatherLine}\n" +
         $"{perf}\n" +
         $"LMB break | RMB place | MMB pick | T tool | G craft | F5/F6 save";
     }

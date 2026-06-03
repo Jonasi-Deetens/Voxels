@@ -30,6 +30,8 @@ namespace Voxels.Runtime
         WorldRuntimeProfiler runtimeProfiler;
         GameHudView gameHud;
         HexSkyCloudController skyClouds;
+        WeatherSystem weatherSystem;
+        WeatherParticleController weatherParticles;
         BlockEditFeedback blockFeedback;
         Transform worldRootTransform;
         bool buildComplete;
@@ -102,6 +104,8 @@ namespace Voxels.Runtime
             runtimeProfiler = GetOrAdd<WorldRuntimeProfiler>();
             gameHud = GetOrAdd<GameHudView>();
             skyClouds = GetOrAdd<HexSkyCloudController>();
+            weatherSystem = GetOrAdd<WeatherSystem>();
+            weatherParticles = GetOrAdd<WeatherParticleController>();
             GetOrAdd<PlayerGameplayState>();
             PlayerInventory playerInventory = GetOrAdd<PlayerInventory>();
             WorldRegionLoader regionLoader = GetOrAdd<WorldRegionLoader>();
@@ -154,6 +158,16 @@ namespace Voxels.Runtime
             saveSystem.Initialize(hexWorld, settings, chunkManager, worldScroller, blockHotbar, toolState, playerInventory, player);
             gameHud.Initialize(worldScroller, chunkManager, celestialSystem, blockHotbar, toolState, runtimeProfiler, settings, blockInteractor, playerInventory);
             biomeAmbience.Initialize(worldScroller, celestialSystem);
+            Transform weatherFollow = spawnCamera != null ? spawnCamera.transform : player;
+            weatherParticles.Initialize(weatherFollow);
+            weatherSystem.Initialize(
+                worldScroller,
+                settings,
+                celestialSystem,
+                skyClouds,
+                skyController,
+                biomeAmbience,
+                weatherParticles);
             nightSpawner.Initialize(worldScroller, settings);
             dayNight.Initialize(celestialSystem, nightSpawner);
             GrantStarterInventory(playerInventory, registry);

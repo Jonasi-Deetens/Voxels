@@ -43,6 +43,9 @@ namespace Voxels.Runtime
         Transform playerTransform;
         float windOffset;
         int activeCloudCount;
+        WeatherSnapshot weatherSnapshot = WeatherSnapshot.Clear;
+        float weatherWindMultiplier = 1f;
+        float weatherAlphaMultiplier = 1f;
 
         public void Initialize(CelestialSystem celestialSystem, WorldSettings worldSettings, Transform player)
         {
@@ -67,16 +70,29 @@ namespace Voxels.Runtime
             float skyRadius = ResolveSkyRadius();
             float sunHeight = celestial.SunHeight;
             Color cloudColor = Color.Lerp(nightCloudColor, dayCloudColor, sunHeight);
+            cloudColor.a *= weatherAlphaMultiplier;
             cloudMaterial.SetColor("_BaseColor", cloudColor);
 
             float time = Time.time;
             float timeOfDayBoost = 0.85f + 0.3f * Mathf.Sin(celestial.TimeOfDay * Mathf.PI * 2f);
-            float drift = driftDegreesPerSecond * Mathf.Deg2Rad * Time.deltaTime * timeOfDayBoost;
+            float drift = driftDegreesPerSecond * Mathf.Deg2Rad * Time.deltaTime * timeOfDayBoost * weatherWindMultiplier;
 
+            int visibleClouds = Mathf.CeilToInt(activeCloudCount * Mathf.Clamp01(weatherSnapshot.CloudCoverage));
             for (int i = 0; i < activeCloudCount; i++)
             {
                 CloudInstance cloud = clouds[i];
                 if (cloud?.Transform == null)
+                {
+                    continue;
+                }
+
+                bool visible = i < visibleClouds;
+                if (cloud.Transform.gameObject.activeSelf != visible)
+                {
+                    cloud.Transform.gameObject.SetActive(visible);
+                }
+
+                if (!visible)
                 {
                     continue;
                 }
@@ -148,6 +164,7 @@ namespace Voxels.Runtime
             activeCloudCount = Mathf.Clamp(cloudCount, 0, clouds.Length);
             var random = new Unity.Mathematics.Random((uint)math.max(1, settings.Seed) ^ 0xC10Du);
 
+            int visibleClouds = Mathf.CeilToInt(activeCloudCount * Mathf.Clamp01(weatherSnapshot.CloudCoverage));
             for (int i = 0; i < activeCloudCount; i++)
             {
                 float azimuth = random.NextFloat(0f, math.PI * 2f);
@@ -223,3 +240,11 @@ namespace Voxels.Runtime
         }
     }
 }
+
+
+        public void ApplyWeather(in WeatherSnapshot snapshot)
+        {
+            weatherSnapshot = snapshot;
+            weatherWindMultiplier = snapshot.WindMultiplier;
+            weatherAlphaMultiplier = Mathf.Lerp(0.35f, 1f, snapshot.CloudCoverage);
+        }

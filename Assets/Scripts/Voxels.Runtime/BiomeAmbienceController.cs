@@ -15,6 +15,7 @@ namespace Voxels.Runtime
     AudioSource ambientB;
     bool useSourceA = true;
     BiomeDefinition currentBiome;
+    float weatherVolumeMultiplier = 1f;
     Color currentDayAmbient;
     Color currentNightAmbient;
 
@@ -72,7 +73,7 @@ namespace Voxels.Runtime
       useSourceA = !useSourceA;
 
       next.clip = biome.AmbientLoop;
-      next.volume = biome.AmbientVolume;
+      next.volume = biome.AmbientVolume * weatherVolumeMultiplier;
       next.Play();
       StopAllCoroutines();
       StartCoroutine(FadeSources(prev, next, crossfadeSeconds));
@@ -94,7 +95,7 @@ namespace Voxels.Runtime
 
         if (to != null)
         {
-          to.volume = Mathf.Lerp(0f, startTo, t);
+          to.volume = Mathf.Lerp(0f, startTo * weatherVolumeMultiplier, t);
         }
 
         yield return null;
@@ -107,3 +108,17 @@ namespace Voxels.Runtime
     }
   }
 }
+
+    public void ApplyWeatherVolume(float multiplier)
+    {
+      weatherVolumeMultiplier = Mathf.Clamp(multiplier, 0.2f, 1f);
+      if (ambientA != null && ambientA.isPlaying)
+      {
+        ambientA.volume = (currentBiome != null ? currentBiome.AmbientVolume : 0.35f) * weatherVolumeMultiplier;
+      }
+
+      if (ambientB != null && ambientB.isPlaying)
+      {
+        ambientB.volume = (currentBiome != null ? currentBiome.AmbientVolume : 0.35f) * weatherVolumeMultiplier;
+      }
+    }
