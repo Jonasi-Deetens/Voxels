@@ -19,7 +19,6 @@ namespace Voxels.Runtime
         WorldScroller worldScroller;
         HexChunkManager chunkManager;
         WorldBoundary worldBoundary;
-        WorldDebugOverlay debugOverlay;
         HexBlockInteractor blockInteractor;
         ProceduralSkyController skyController;
         FlatPlayerController playerController;
@@ -27,6 +26,9 @@ namespace Voxels.Runtime
         CelestialSystem celestialSystem;
         BlockHotbar blockHotbar;
         WorldSaveSystem saveSystem;
+        PlayerToolState toolState;
+        WorldRuntimeProfiler runtimeProfiler;
+        GameHudView gameHud;
         BlockEditFeedback blockFeedback;
         Transform worldRootTransform;
         bool buildComplete;
@@ -59,6 +61,8 @@ namespace Voxels.Runtime
                 yield break;
             }
 
+            settings.ApplyPerformancePreset();
+
             if (settings.BiomeCatalog == null && settings.Biome == null)
             {
                 UnityEngine.Debug.LogError("WorldSettings needs BiomeCatalog. Run Voxels/Setup Default Content.");
@@ -89,16 +93,16 @@ namespace Voxels.Runtime
             worldScroller = GetOrAdd<WorldScroller>();
             chunkManager = GetOrAdd<HexChunkManager>();
             worldBoundary = GetOrAdd<WorldBoundary>();
-            debugOverlay = GetOrAdd<WorldDebugOverlay>();
             blockInteractor = GetOrAdd<HexBlockInteractor>();
             skyController = GetOrAdd<ProceduralSkyController>();
             blockHotbar = GetOrAdd<BlockHotbar>();
             saveSystem = GetOrAdd<WorldSaveSystem>();
+            toolState = GetOrAdd<PlayerToolState>();
+            runtimeProfiler = GetOrAdd<WorldRuntimeProfiler>();
+            gameHud = GetOrAdd<GameHudView>();
             GetOrAdd<PlayerGameplayState>();
-            GetOrAdd<BlockHotbarHud>();
-            GetOrAdd<MinimapOverlay>();
 
-            blockHotbar.Initialize(blockDefinitions);
+            blockHotbar.Initialize(blockDefinitions, registry);
             chunkManager.Initialize(hexWorld, settings, worldScroller, chunksParent);
             worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), HexCoord.Zero, hexWorld);
 
@@ -111,6 +115,7 @@ namespace Voxels.Runtime
 
             HexCoord spawnHex = FlatWorldSpawn.FindSpawnHex(hexWorld, settings);
             worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), spawnHex, hexWorld);
+            hexWorld.SetNoiseOrigin(spawnHex);
 
             chunkManager.ClearMeshesOnly();
             chunkManager.RefreshAroundPlayer();
@@ -132,15 +137,10 @@ namespace Voxels.Runtime
                 spawnCamera != null ? spawnCamera.transform : null,
                 player,
                 blockHotbar,
-                blockFeedback);
-            saveSystem.Initialize(hexWorld, settings, chunkManager, worldScroller);
-
-            var hotbarHud = GetComponent<BlockHotbarHud>();
-            hotbarHud?.Initialize(blockHotbar, registry);
-            var minimap = GetComponent<MinimapOverlay>();
-            minimap?.Initialize(worldScroller, settings);
-
-            debugOverlay.Initialize(worldScroller, chunkManager, celestialSystem, blockInteractor, blockHotbar);
+                blockFeedback,
+                toolState);
+            saveSystem.Initialize(hexWorld, settings, chunkManager, worldScroller, blockHotbar, toolState, player);
+            gameHud.Initialize(worldScroller, chunkManager, celestialSystem, blockHotbar, toolState, runtimeProfiler, settings);
 
             if (spawnCamera != null)
             {
@@ -149,7 +149,7 @@ namespace Voxels.Runtime
 
             stopwatch.Stop();
             UnityEngine.Debug.Log(
-                $"World built (seed={settings.Seed}, hexRadius={settings.WorldHexRadius}, spawn={spawnHex}): " +
+                $"World built (seed={settings.Seed}, hexRadius={settings.WorldHexRadius}, preset={settings.PerformancePreset}, spawn={spawnHex}): " +
                 $"buildTime={stopwatch.Elapsed.TotalSeconds:F1}s.");
 
             overlay.Report(1f, "Ready.");
@@ -195,7 +195,7 @@ namespace Voxels.Runtime
                 playerController = player.gameObject.AddComponent<FlatPlayerController>();
             }
 
-            playerController.Initialize(settings, worldScroller, chunkManager, camera != null ? camera.transform : null);
+            playerController.Initialize(settings, worldScroller, chunkManager, camera != null ? camera.transform : null, hexWorld);
 
             if (camera != null)
             {
@@ -260,6 +260,7 @@ namespace Voxels.Runtime
             chunkManager.RefreshAroundPlayer();
             if (before != worldScroller.PlayerWorldHex)
             {
+                hexWorld.SetNoiseOrigin(worldScroller.PlayerWorldHex);
                 chunkManager.RefreshAroundPlayer(forceRebuildMeshes: true);
             }
         }

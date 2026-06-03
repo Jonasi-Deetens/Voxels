@@ -71,5 +71,26 @@ namespace Voxels.World
                 }
             }
         }
+
+        public bool TryGetBiomeByAssetName(string assetName, out BiomeDefinition biome)
+        {
+            biome = null;
+            if (string.IsNullOrEmpty(assetName))
+            {
+                return false;
+            }
+
+            List<BiomeDefinition> all = GetAllBiomesList();
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] != null && all[i].name == assetName)
+                {
+                    biome = all[i];
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

@@ -81,6 +81,16 @@ namespace Voxels.Runtime
 #endif
         }
 
+        public static bool IsPrimaryHeld()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Mouse mouse = Mouse.current;
+            return mouse != null && mouse.leftButton.isPressed;
+#else
+            return Input.GetMouseButton(0);
+#endif
+        }
+
         public static bool WasSecondaryPressedThisFrame()
         {
 #if ENABLE_INPUT_SYSTEM
@@ -91,6 +101,16 @@ namespace Voxels.Runtime
 #endif
         }
 
+        public static bool WasPickBlockPressedThisFrame()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Mouse mouse = Mouse.current;
+            return mouse != null && mouse.middleButton.wasPressedThisFrame;
+#else
+            return Input.GetMouseButtonDown(2);
+#endif
+        }
+
         public static bool WasDebugTogglePressedThisFrame() => WasKeyPressed(KeyCode.F3);
 
         public static bool WasCreativeTogglePressedThisFrame() => WasKeyPressed(KeyCode.F4);
@@ -98,6 +118,8 @@ namespace Voxels.Runtime
         public static bool WasSavePressedThisFrame() => WasKeyPressed(KeyCode.F5);
 
         public static bool WasLoadPressedThisFrame() => WasKeyPressed(KeyCode.F6);
+
+        public static bool WasCycleToolPressedThisFrame() => WasKeyPressed(KeyCode.T);
 
         public static bool WasHotbarSlotPressed(int index)
         {
@@ -135,6 +157,7 @@ namespace Voxels.Runtime
                 KeyCode.F4 => keyboard.f4Key.wasPressedThisFrame,
                 KeyCode.F5 => keyboard.f5Key.wasPressedThisFrame,
                 KeyCode.F6 => keyboard.f6Key.wasPressedThisFrame,
+                KeyCode.T => keyboard.tKey.wasPressedThisFrame,
                 KeyCode.Alpha1 => keyboard.digit1Key.wasPressedThisFrame,
                 KeyCode.Alpha2 => keyboard.digit2Key.wasPressedThisFrame,
                 KeyCode.Alpha3 => keyboard.digit3Key.wasPressedThisFrame,

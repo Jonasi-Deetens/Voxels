@@ -14,25 +14,48 @@ namespace Voxels.Runtime
         public int SelectedIndex => selectedIndex;
         public BlockId SelectedBlock => slots[selectedIndex];
 
-        public void Initialize(BlockDefinition[] availableBlocks)
+        public void Initialize(BlockDefinition[] availableBlocks, BlockRegistry registry)
+        {
+            if (registry != null)
+            {
+                BlockHotbarPalette.ApplyToHotbar(this, registry);
+                return;
+            }
+
+            SetSlotsFromDefinitions(availableBlocks);
+        }
+
+        public void SetSlots(BlockId[] blockIds)
+        {
+            for (int i = 0; i < SlotCount; i++)
+            {
+                slots[i] = i < blockIds.Length ? blockIds[i] : BlockId.Air;
+            }
+
+            if (slots[0].IsAir)
+            {
+                slots[0] = new BlockId(1);
+            }
+
+            selectedIndex = 0;
+        }
+
+        void SetSlotsFromDefinitions(BlockDefinition[] availableBlocks)
         {
             for (int i = 0; i < SlotCount; i++)
             {
                 slots[i] = BlockId.Air;
             }
 
-            if (availableBlocks == null)
+            if (availableBlocks != null)
             {
-                slots[0] = new BlockId(1);
-                return;
-            }
-
-            int count = Mathf.Min(SlotCount, availableBlocks.Length);
-            for (int i = 0; i < count; i++)
-            {
-                if (availableBlocks[i] != null)
+                int count = Mathf.Min(SlotCount, availableBlocks.Length);
+                for (int i = 0; i < count; i++)
                 {
-                    slots[i] = availableBlocks[i].BlockId;
+                    if (availableBlocks[i] != null)
+                    {
+                        slots[i] = availableBlocks[i].BlockId;
+                    }
                 }
             }
 
@@ -42,6 +65,22 @@ namespace Voxels.Runtime
             }
 
             selectedIndex = 0;
+        }
+
+        public void SelectSlot(int index) => selectedIndex = Mathf.Clamp(index, 0, SlotCount - 1);
+
+        public void SelectBlock(BlockId blockId)
+        {
+            for (int i = 0; i < SlotCount; i++)
+            {
+                if (slots[i] == blockId)
+                {
+                    selectedIndex = i;
+                    return;
+                }
+            }
+
+            slots[selectedIndex] = blockId;
         }
 
         void Update()

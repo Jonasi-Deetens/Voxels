@@ -164,6 +164,11 @@ namespace Voxels.Rendering
             }
 
             BlockId neighborBlockId = neighborColumn.GetBlock(layer);
+            if (neighborBlockId == blockId && !neighborBlockId.IsAir)
+            {
+                return true;
+            }
+
             if (!sourceIsOpaque)
             {
                 return neighborBlockId == blockId;

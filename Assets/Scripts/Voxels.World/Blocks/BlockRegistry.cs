@@ -17,6 +17,10 @@ namespace Voxels.World
 
             definitionsById[definition.BlockId.Value] = definition;
             definitionsByName[definition.DisplayName] = definition;
+            if (!string.IsNullOrEmpty(definition.name))
+            {
+                definitionsByName[definition.name] = definition;
+            }
         }
 
         public void RegisterRange(IEnumerable<BlockDefinition> definitions)
@@ -36,6 +40,17 @@ namespace Voxels.World
         {
             definition = definitionsById[blockId.Value];
             return definition != null;
+        }
+
+        public bool TryGetByName(string name, out BlockDefinition definition)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                definition = null;
+                return false;
+            }
+
+            return definitionsByName.TryGetValue(name, out definition);
         }
     }
 }

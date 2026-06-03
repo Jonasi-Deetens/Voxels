@@ -9,10 +9,13 @@ namespace Voxels.World
         readonly WorldSettings settings;
         readonly HexWorldDataCache dataCache;
         readonly BlockRegistry blockRegistry;
+        readonly HashSet<HexCoord> dirtyHexes = new HashSet<HexCoord>();
+        HexCoord noiseOriginHex;
 
         public WorldSettings Settings => settings;
         public HexWorldDataCache DataCache => dataCache;
         public BlockRegistry BlockRegistry => blockRegistry;
+        public HexCoord NoiseOriginHex => noiseOriginHex;
         public float BlockSize => settings.BlockSize;
         public int WorldHexRadius => settings.WorldHexRadius;
 
@@ -21,7 +24,10 @@ namespace Voxels.World
             this.settings = settings;
             this.blockRegistry = blockRegistry;
             dataCache = new HexWorldDataCache(settings.ColumnCapacity, settings.ColumnCacheMaxCells);
+            noiseOriginHex = HexCoord.Zero;
         }
+
+        public void SetNoiseOrigin(in HexCoord playerHex) => noiseOriginHex = playerHex;
 
         public void Generate(IWorldGenerator generator)
         {
@@ -35,6 +41,12 @@ namespace Voxels.World
         public void SetBiome(in HexCoord hex, BiomeDefinition biome) => dataCache.SetBiome(hex, biome);
 
         public BiomeDefinition GetBiome(in HexCoord hex) => dataCache.GetBiome(hex);
+
+        public void MarkColumnDirty(in HexCoord hex) => dirtyHexes.Add(hex);
+
+        public void ClearDirtyColumns() => dirtyHexes.Clear();
+
+        public IEnumerable<HexCoord> GetDirtyHexes() => dirtyHexes;
 
         public HexCoord WorldToLocal(in HexCoord worldHex, in HexCoord playerHex) => worldHex.Subtract(playerHex);
 

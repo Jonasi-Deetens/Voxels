@@ -46,7 +46,7 @@ namespace Voxels.World.Generation
             for (int i = 0; i < cells.Count; i++)
             {
                 HexCoord hex = cells[i];
-                int surfaceHeight = SampleSurfaceHeight(hex, terrainProfile, seaLevel, minSurfaceLayer);
+                int surfaceHeight = SampleSurfaceHeight(world, hex, terrainProfile, seaLevel, minSurfaceLayer);
                 surfaceHeights[hex] = surfaceHeight;
                 world.GetOrCreateColumn(hex).SetSurfaceHeight(surfaceHeight);
             }
@@ -89,7 +89,7 @@ namespace Voxels.World.Generation
                 column.SetBlock(layer, blocks.Bedrock);
             }
 
-            CarveCaves(column, worldHex, biome, columnBottom, surfaceHeight);
+            CarveCaves(world, column, worldHex, biome, columnBottom, surfaceHeight);
             ApplySurfaceBlocks(
                 column,
                 columnBottom,
@@ -133,12 +133,13 @@ namespace Voxels.World.Generation
         }
 
         int SampleSurfaceHeight(
+            HexWorld world,
             in HexCoord worldHex,
             BiomeDefinition biome,
             int seaLevel,
             int minSurfaceLayer)
         {
-            float2 xz = FlatHexGrid.AxialToWorld(worldHex, settings.BlockSize).xz;
+            float2 xz = GetNoiseXZ(world, worldHex);
             float continent = noise.snoise(xz * biome.ContinentalFrequency + SeedOffset(11).xy);
 
             if (continent < biome.ContinentalThreshold)
@@ -187,6 +188,7 @@ namespace Voxels.World.Generation
         }
 
         void CarveCaves(
+            HexWorld world,
             BlockColumn column,
             in HexCoord worldHex,
             BiomeDefinition biome,
@@ -196,7 +198,7 @@ namespace Voxels.World.Generation
             int caveTop = surfaceHeight - biome.CaveMaxDepthBelowSurface;
             int caveBottom = columnBottom + biome.CaveMinLayerAboveCore;
 
-            float2 xz = FlatHexGrid.AxialToWorld(worldHex, settings.BlockSize).xz;
+            float2 xz = GetNoiseXZ(world, worldHex);
             for (int layer = caveBottom; layer <= caveTop; layer++)
             {
                 float3 sample = new float3(xz.x, layer * 0.11f, xz.y) * biome.CaveFrequency;
@@ -258,6 +260,16 @@ namespace Voxels.World.Generation
             {
                 column.SetBlock(layer, water);
             }
+        }
+
+        static float2 GetNoiseXZ(HexWorld world, in HexCoord worldHex)
+        {
+            if (world.Settings.InfiniteWorld)
+            {
+                return WorldNoiseSampling.SampleXZ(worldHex, world.BlockSize, world.NoiseOriginHex);
+            }
+
+            return FlatHexGrid.AxialToWorld(worldHex, world.BlockSize).xz;
         }
 
         float2 SeedOffset(int salt)

@@ -17,6 +17,7 @@ namespace Voxels.Runtime
         [SerializeField] float coyoteTime = 0.12f;
         [SerializeField] float jumpBufferTime = 0.12f;
         [SerializeField] float creativeVerticalSpeed = 6f;
+        [SerializeField] float swimVerticalSpeed = 3f;
         [SerializeField] LayerMask groundMask = ~0;
 
         CharacterController controller;
@@ -24,12 +25,14 @@ namespace Voxels.Runtime
         WorldScroller scroller;
         HexChunkManager chunkManager;
         WorldSettings settings;
+        HexWorld hexWorld;
         float verticalVelocity;
         float coyoteTimer;
         float jumpBufferTimer;
         HexCoord lastNotifiedHex;
 
         public bool IsGrounded { get; private set; }
+        public bool IsSwimming { get; private set; }
 
         void Awake()
         {
@@ -40,11 +43,13 @@ namespace Voxels.Runtime
             WorldSettings worldSettings,
             WorldScroller worldScroller,
             HexChunkManager chunks,
-            Transform view)
+            Transform view,
+            HexWorld world = null)
         {
             settings = worldSettings;
             scroller = worldScroller;
             chunkManager = chunks;
+            hexWorld = world ?? worldScroller?.HexWorld;
             viewTransform = view != null ? view : GetComponentInChildren<Camera>()?.transform;
             ConfigureCapsule();
             lastNotifiedHex = scroller != null ? scroller.PlayerWorldHex : HexCoord.Zero;
@@ -77,6 +82,10 @@ namespace Voxels.Runtime
             {
                 HandleCreativeMovement();
             }
+            else if (IsSwimming)
+            {
+                HandleSwimMovement();
+            }
             else
             {
                 HandleSurvivalMovement();
@@ -94,9 +103,39 @@ namespace Voxels.Runtime
         bool IsCreativeMode() =>
             PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
 
+        void HandleSwimMovement()
+        {
+            IsGrounded = false;
+            verticalVelocity = 0f;
+
+            if (GameInput.WasJumpPressed())
+            {
+                verticalVelocity = swimVerticalSpeed;
+            }
+            else if (GameInput.IsDescendHeld())
+            {
+                verticalVelocity = -swimVerticalSpeed;
+            }
+
+            Vector2 input = GameInput.ReadMoveAxes();
+            Vector3 move = Vector3.up * verticalVelocity;
+            if (input.sqrMagnitude > 0.0001f)
+            {
+                Transform facing = viewTransform != null ? viewTransform : transform;
+                input = Vector2.ClampMagnitude(input, 1f);
+                Vector3 forward = Vector3.ProjectOnPlane(facing.forward, Vector3.up).normalized;
+                Vector3 right = Vector3.Cross(Vector3.up, forward);
+                float speed = settings.SwimSpeed * (GameInput.IsSprintHeld() ? sprintMultiplier : 1f);
+                move += (forward * input.y + right * input.x) * speed;
+            }
+
+            controller.Move(move * Time.deltaTime);
+        }
+
         void HandleCreativeMovement()
         {
             IsGrounded = false;
+            IsSwimming = false;
             verticalVelocity = 0f;
 
             if (GameInput.WasJumpPressed())
@@ -126,6 +165,12 @@ namespace Voxels.Runtime
 
         void HandleSurvivalMovement()
         {
+            IsSwimming = FluidHelper.IsPlayerInWater(hexWorld, settings, scroller, transform);
+            if (IsSwimming)
+            {
+                return;
+            }
+
             bool wasGrounded = IsGrounded;
             IsGrounded = controller.isGrounded;
 

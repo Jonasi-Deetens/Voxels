@@ -6,9 +6,6 @@ using Voxels.World;
 
 namespace Voxels.Runtime
 {
-    /// <summary>
-    /// Left click breaks blocks; right click places the selected hotbar block.
-    /// </summary>
     [DefaultExecutionOrder(60)]
     public sealed class HexBlockInteractor : MonoBehaviour
     {
@@ -23,6 +20,11 @@ namespace Voxels.Runtime
         Transform playerTransform;
         BlockHotbar hotbar;
         BlockEditFeedback feedback;
+        PlayerToolState toolState;
+
+        float breakTimer;
+        HexBlockTarget breakTarget;
+        bool breaking;
 
         public void Initialize(
             HexWorld world,
@@ -32,7 +34,8 @@ namespace Voxels.Runtime
             Transform view,
             Transform player,
             BlockHotbar blockHotbar,
-            BlockEditFeedback editFeedback)
+            BlockEditFeedback editFeedback,
+            PlayerToolState playerToolState)
         {
             hexWorld = world;
             settings = worldSettings;
@@ -42,6 +45,7 @@ namespace Voxels.Runtime
             playerTransform = player;
             hotbar = blockHotbar;
             feedback = editFeedback;
+            toolState = playerToolState;
         }
 
         void Update()
@@ -60,59 +64,109 @@ namespace Voxels.Runtime
                 }
             }
 
-            if (!GameInput.WasPrimaryPressedThisFrame() && !GameInput.WasSecondaryPressedThisFrame())
+            if (GameInput.WasCycleToolPressedThisFrame() && toolState != null)
+            {
+                toolState.CycleTool();
+            }
+
+            if (TryGetTarget(false, out HexBlockTarget pickTarget) && GameInput.WasPickBlockPressedThisFrame())
+            {
+                PickBlockToHotbar(pickTarget);
+            }
+
+            if (GameInput.WasSecondaryPressedThisFrame())
+            {
+                if (TryGetTarget(true, out HexBlockTarget placeTarget))
+                {
+                    TryPlaceBlock(placeTarget);
+                }
+            }
+
+            UpdateBreaking();
+        }
+
+        void UpdateBreaking()
+        {
+            bool creative = PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
+
+            if (GameInput.WasPrimaryPressedThisFrame())
+            {
+                if (TryGetTarget(false, out HexBlockTarget target))
+                {
+                    breaking = true;
+                    breakTarget = target;
+                    breakTimer = 0f;
+                    if (creative)
+                    {
+                        CompleteBreak();
+                    }
+                }
+            }
+
+            if (!breaking)
             {
                 return;
             }
 
-            Transform worldRoot = scroller.WorldRoot;
-            if (worldRoot == null)
+            if (!GameInput.IsPrimaryHeld())
+            {
+                breaking = false;
+                return;
+            }
+
+            if (!breakTarget.IsValid || !TryGetTarget(false, out HexBlockTarget current) ||
+                current.WorldHex != breakTarget.WorldHex || current.Layer != breakTarget.Layer)
+            {
+                breaking = false;
+                return;
+            }
+
+            if (creative)
             {
                 return;
             }
 
-            Ray ray = new Ray(viewTransform.position, viewTransform.forward);
-            HexCoord playerHex = scroller.PlayerWorldHex;
-            bool place = GameInput.WasSecondaryPressedThisFrame();
-
-            if (!HexWorldRaycast.TryRaycastBlock(
-                ray,
-                worldRoot,
-                playerHex,
-                settings,
-                blockMask,
-                reachDistance,
-                place,
-                out HexBlockTarget target) || !target.IsValid)
+            if (!hexWorld.TryGetColumn(breakTarget.WorldHex, out BlockColumn column))
             {
+                breaking = false;
                 return;
             }
 
-            if (!hexWorld.IsInsideWorld(target.WorldHex))
+            BlockId existing = column.GetBlock(breakTarget.Layer);
+            if (existing.IsAir)
             {
+                breaking = false;
                 return;
             }
 
-            if (place)
+            hexWorld.BlockRegistry.TryGetDefinition(existing, out BlockDefinition definition);
+            PlayerToolMode tool = toolState != null ? toolState.ActiveTool : PlayerToolMode.Hand;
+            float duration = BlockBreakCalculator.GetBreakDuration(definition, tool, false);
+            breakTimer += Time.deltaTime;
+            if (breakTimer >= duration)
             {
-                TryPlaceBlock(target);
-            }
-            else
-            {
-                TryBreakBlock(target);
+                CompleteBreak();
             }
         }
 
-        void TryBreakBlock(in HexBlockTarget target)
+        void CompleteBreak()
         {
-            if (!hexWorld.TryGetColumn(target.WorldHex, out BlockColumn column))
+            if (!breakTarget.IsValid)
             {
+                breaking = false;
                 return;
             }
 
-            BlockId existing = column.GetBlock(target.Layer);
+            if (!hexWorld.TryGetColumn(breakTarget.WorldHex, out BlockColumn column))
+            {
+                breaking = false;
+                return;
+            }
+
+            BlockId existing = column.GetBlock(breakTarget.Layer);
             if (existing.IsAir)
             {
+                breaking = false;
                 return;
             }
 
@@ -122,18 +176,38 @@ namespace Voxels.Runtime
                 if (!hexWorld.BlockRegistry.TryGetDefinition(existing, out BlockDefinition definition) ||
                     !definition.IsSolid)
                 {
+                    breaking = false;
                     return;
                 }
             }
 
-            column.SetBlock(target.Layer, BlockId.Air);
-            chunkManager.RebuildChunksForWorldHex(target.WorldHex, scroller.PlayerWorldHex);
-            feedback?.PlayBreak(GetBlockWorldPosition(target));
+            column.SetBlock(breakTarget.Layer, BlockId.Air);
+            hexWorld.MarkColumnDirty(breakTarget.WorldHex);
+            chunkManager.RebuildChunksForWorldHex(breakTarget.WorldHex, scroller.PlayerWorldHex);
+            feedback?.PlayBreak(GetBlockWorldPosition(breakTarget));
+            breaking = false;
+        }
+
+        void PickBlockToHotbar(in HexBlockTarget target)
+        {
+            if (!hexWorld.TryGetColumn(target.WorldHex, out BlockColumn column) || hotbar == null)
+            {
+                return;
+            }
+
+            BlockId blockId = column.GetBlock(target.Layer);
+            if (blockId.IsAir)
+            {
+                return;
+            }
+
+            hotbar.SelectBlock(blockId);
         }
 
         void TryPlaceBlock(in HexBlockTarget target)
         {
-            if (!HexBlockPlacement.CanPlace(hexWorld, settings, playerTransform, target))
+            bool creative = PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
+            if (!HexBlockPlacement.CanPlace(hexWorld, settings, playerTransform, target, creative))
             {
                 return;
             }
@@ -144,10 +218,38 @@ namespace Voxels.Runtime
                 return;
             }
 
+            if (!creative && hexWorld.BlockRegistry.TryGetDefinition(placeId, out BlockDefinition placeDef) &&
+                placeDef.IsFluid)
+            {
+                return;
+            }
+
             BlockColumn column = hexWorld.GetOrCreateColumn(target.WorldHex);
             column.SetBlock(target.Layer, placeId);
+            hexWorld.MarkColumnDirty(target.WorldHex);
             chunkManager.RebuildChunksForWorldHex(target.WorldHex, scroller.PlayerWorldHex);
             feedback?.PlayPlace(GetBlockWorldPosition(target));
+        }
+
+        bool TryGetTarget(bool placeMode, out HexBlockTarget target)
+        {
+            target = default;
+            Transform worldRoot = scroller.WorldRoot;
+            if (worldRoot == null)
+            {
+                return false;
+            }
+
+            Ray ray = new Ray(viewTransform.position, viewTransform.forward);
+            return HexWorldRaycast.TryRaycastBlock(
+                ray,
+                worldRoot,
+                scroller.PlayerWorldHex,
+                settings,
+                blockMask,
+                reachDistance,
+                placeMode,
+                out target) && target.IsValid && hexWorld.IsInsideWorld(target.WorldHex);
         }
 
         BlockId ResolvePlaceBlock()
@@ -158,17 +260,12 @@ namespace Voxels.Runtime
             }
 
             BiomeDefinition biome = hexWorld.GetBiome(scroller.PlayerWorldHex);
-            if (biome != null && biome.SurfaceBlock != null)
+            if (biome?.SurfaceBlock != null)
             {
                 return biome.SurfaceBlock.BlockId;
             }
 
-            if (settings.Biome != null && settings.Biome.SurfaceBlock != null)
-            {
-                return settings.Biome.SurfaceBlock.BlockId;
-            }
-
-            return new BlockId(2);
+            return settings.Biome?.SurfaceBlock != null ? settings.Biome.SurfaceBlock.BlockId : new BlockId(2);
         }
 
         Vector3 GetBlockWorldPosition(in HexBlockTarget target)

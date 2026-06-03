@@ -3,6 +3,13 @@ using UnityEngine;
 
 namespace Voxels.World
 {
+    public enum WorldPerformancePreset
+    {
+        Low,
+        Balanced,
+        High,
+    }
+
     [CreateAssetMenu(menuName = "Voxels/World Settings", fileName = "World_")]
     public sealed class WorldSettings : ScriptableObject
     {
@@ -27,6 +34,7 @@ namespace Voxels.World
         [Header("Player")]
         [SerializeField] float playerEyeHeight = 1.7f;
         [SerializeField] float playerHeight = 2f;
+        [SerializeField] float swimSpeed = 3.5f;
 
         [Header("Celestial")]
         [SerializeField] float dayLengthSeconds = 900f;
@@ -42,7 +50,8 @@ namespace Voxels.World
         [Header("Atmosphere")]
         [SerializeField] bool enableDistanceFog = true;
 
-        [Header("Build Performance")]
+        [Header("Performance")]
+        [SerializeField] WorldPerformancePreset performancePreset = WorldPerformancePreset.Balanced;
         [SerializeField] float buildFrameBudgetMs = 16f;
         [SerializeField] bool createTerrainColliders = true;
         [SerializeField] float floatingOriginRecenterDistance = 1000f;
@@ -66,6 +75,7 @@ namespace Voxels.World
         public int ViewRadiusChunks => viewRadiusChunks;
         public float PlayerEyeHeight => playerEyeHeight;
         public float PlayerHeight => playerHeight;
+        public float SwimSpeed => swimSpeed;
         public float DayLengthSeconds => dayLengthSeconds;
         public float OrbitRadiusMultiplier => orbitRadiusMultiplier;
         public float SunAngularSize => sunAngularSize;
@@ -74,6 +84,7 @@ namespace Voxels.World
         public float StructureDensity => structureDensity;
         public int TreeTrunkHeight => treeTrunkHeight;
         public bool EnableDistanceFog => enableDistanceFog;
+        public WorldPerformancePreset PerformancePreset => performancePreset;
         public float BuildFrameBudgetMs => buildFrameBudgetMs;
         public bool CreateTerrainColliders => createTerrainColliders;
         public float FloatingOriginRecenterDistance => floatingOriginRecenterDistance;
@@ -82,6 +93,34 @@ namespace Voxels.World
         public bool ShowWorldBoundary => showWorldBoundary;
         public float BoundaryWallHeight => boundaryWallHeight;
         public bool UseBackgroundMeshBuild => useBackgroundMeshBuild;
+
+        public void ApplyPerformancePreset()
+        {
+            switch (performancePreset)
+            {
+                case WorldPerformancePreset.Low:
+                    viewRadiusChunks = 2;
+                    columnCacheMaxCells = 4096;
+                    chunkMeshPadding = 0;
+                    useBackgroundMeshBuild = false;
+                    buildFrameBudgetMs = 10f;
+                    break;
+                case WorldPerformancePreset.High:
+                    viewRadiusChunks = 4;
+                    columnCacheMaxCells = 12288;
+                    chunkMeshPadding = 1;
+                    useBackgroundMeshBuild = true;
+                    buildFrameBudgetMs = 20f;
+                    break;
+                default:
+                    viewRadiusChunks = 3;
+                    columnCacheMaxCells = 8192;
+                    chunkMeshPadding = 1;
+                    useBackgroundMeshBuild = true;
+                    buildFrameBudgetMs = 16f;
+                    break;
+            }
+        }
 
         public float ResolveOrbitRadius()
         {

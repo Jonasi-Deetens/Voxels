@@ -37,6 +37,7 @@ namespace Voxels.Runtime
         FlatTerrainGenerator terrainGenerator;
         FlatHexBlockMeshBuilder meshBuilder;
         FlatWaterMeshBuilder waterMeshBuilder;
+        WorldRuntimeProfiler runtimeProfiler;
         HexCoord lastPlayerHex = new HexCoord(int.MinValue, int.MinValue);
         bool isLoading;
         Coroutine meshQueueRoutine;
@@ -58,6 +59,7 @@ namespace Voxels.Runtime
             terrainGenerator = new FlatTerrainGenerator(settings);
             meshBuilder = new FlatHexBlockMeshBuilder(hexWorld);
             waterMeshBuilder = new FlatWaterMeshBuilder(hexWorld);
+            runtimeProfiler = FindAnyObjectByType<WorldRuntimeProfiler>();
         }
 
         public void RefreshAroundPlayer(bool forceRebuildMeshes = false)
@@ -74,6 +76,7 @@ namespace Voxels.Runtime
             }
 
             lastPlayerHex = playerHex;
+            hexWorld.SetNoiseOrigin(playerHex);
             if (forceRebuildMeshes && loadedChunks.Count > 0)
             {
                 RebuildAllMeshes(playerHex);
@@ -296,7 +299,12 @@ namespace Voxels.Runtime
                 waterData = waterMeshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
             }
 
+            float buildStart = Time.realtimeSinceStartup;
             ApplyChunkMeshData(chunk, loaded, terrainData, waterData);
+            if (runtimeProfiler != null)
+            {
+                runtimeProfiler.RecordMeshBuild((Time.realtimeSinceStartup - buildStart) * 1000f);
+            }
         }
 
         void BuildChunkMeshes(ChunkCoord chunk, HexCoord playerHex)
@@ -308,7 +316,12 @@ namespace Voxels.Runtime
 
             ChunkMeshData terrainData = meshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
             ChunkMeshData waterData = waterMeshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
+            float buildStart = Time.realtimeSinceStartup;
             ApplyChunkMeshData(chunk, loaded, terrainData, waterData);
+            if (runtimeProfiler != null)
+            {
+                runtimeProfiler.RecordMeshBuild((Time.realtimeSinceStartup - buildStart) * 1000f);
+            }
         }
 
         void ApplyChunkMeshData(

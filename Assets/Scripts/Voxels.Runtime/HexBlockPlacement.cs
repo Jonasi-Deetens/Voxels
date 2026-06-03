@@ -12,7 +12,8 @@ namespace Voxels.Runtime
             HexWorld world,
             WorldSettings settings,
             Transform player,
-            in HexBlockTarget target)
+            in HexBlockTarget target,
+            bool creative)
         {
             if (!target.IsValid || !world.IsInsideWorld(target.WorldHex))
             {
@@ -20,12 +21,23 @@ namespace Voxels.Runtime
             }
 
             BlockColumn column = world.GetOrCreateColumn(target.WorldHex);
-            if (!column.GetBlock(target.Layer).IsAir)
+            BlockId existing = column.GetBlock(target.Layer);
+            if (!existing.IsAir)
+            {
+                return false;
+            }
+
+            if (FluidHelper.IsFluidBlock(world, existing))
             {
                 return false;
             }
 
             if (target.Layer > column.SurfaceHeight + settings.MaxHeightAboveSurface)
+            {
+                return false;
+            }
+
+            if (!creative && IsFluidNeighbor(world, target))
             {
                 return false;
             }
@@ -41,6 +53,30 @@ namespace Voxels.Runtime
             }
 
             return true;
+        }
+
+        static bool IsFluidNeighbor(HexWorld world, in HexBlockTarget target)
+        {
+            if (target.Layer > 0 && FluidHelper.IsFluidBlock(world, world.GetOrCreateColumn(target.WorldHex).GetBlock(target.Layer - 1)))
+            {
+                return true;
+            }
+
+            for (int i = 0; i < HexCoord.NeighborOffsets.Length; i++)
+            {
+                HexCoord neighborHex = target.WorldHex.Add(HexCoord.NeighborOffsets[i]);
+                if (!world.TryGetColumn(neighborHex, out BlockColumn neighborColumn))
+                {
+                    continue;
+                }
+
+                if (FluidHelper.IsFluidBlock(world, neighborColumn.GetBlock(target.Layer)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         static bool HasSupport(HexWorld world, in HexBlockTarget target)

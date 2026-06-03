@@ -178,24 +178,29 @@ namespace Voxels.EditorTools
 
         static void SetupWorldInScene(Scene scene)
         {
-            PlanetBootstrap bootstrap = Object.FindFirstObjectByType<PlanetBootstrap>();
-            GameObject planetObject;
-
+            WorldBootstrap bootstrap = Object.FindFirstObjectByType<WorldBootstrap>();
             if (bootstrap == null)
             {
-                planetObject = new GameObject("Planet");
-                bootstrap = planetObject.AddComponent<PlanetBootstrap>();
+                bootstrap = Object.FindFirstObjectByType<PlanetBootstrap>();
+            }
+
+            GameObject worldObject;
+            if (bootstrap == null)
+            {
+                worldObject = new GameObject("World");
+                bootstrap = worldObject.AddComponent<WorldBootstrap>();
             }
             else
             {
-                planetObject = bootstrap.gameObject;
+                worldObject = bootstrap.gameObject;
+                worldObject.name = "World";
             }
 
-            Transform chunkRoot = planetObject.transform.Find("Chunks");
+            Transform chunkRoot = worldObject.transform.Find("Chunks");
             if (chunkRoot == null)
             {
                 var chunkRootObject = new GameObject("Chunks");
-                chunkRootObject.transform.SetParent(planetObject.transform, false);
+                chunkRootObject.transform.SetParent(worldObject.transform, false);
                 chunkRoot = chunkRootObject.transform;
             }
 
@@ -383,6 +388,7 @@ namespace Voxels.EditorTools
             blockObject.FindProperty("material").objectReferenceValue = material;
             blockObject.FindProperty("isSolid").boolValue = isSolid;
             blockObject.FindProperty("isOpaque").boolValue = isOpaque;
+            ApplyBlockGameplay(blockObject, displayName);
             blockObject.ApplyModifiedPropertiesWithoutUndo();
             return block;
         }
@@ -398,6 +404,39 @@ namespace Voxels.EditorTools
             asset = ScriptableObject.CreateInstance<T>();
             AssetDatabase.CreateAsset(asset, path);
             return asset;
+        }
+
+        static void ApplyBlockGameplay(SerializedObject blockObject, string displayName)
+        {
+            bool isWater = displayName == "Water";
+            blockObject.FindProperty("isFluid").boolValue = isWater;
+
+            BlockMaterialCategory category = BlockMaterialCategory.Other;
+            float breakTime = 0.35f;
+            if (isWater)
+            {
+                category = BlockMaterialCategory.Fluid;
+                breakTime = 0.2f;
+            }
+            else if (displayName == "Stone" || displayName == "Core" || displayName == "Mantle" ||
+                     displayName == "Crystal" || displayName == "Gravel")
+            {
+                category = BlockMaterialCategory.Stone;
+                breakTime = 0.55f;
+            }
+            else if (displayName == "Dirt" || displayName == "Sand" || displayName == "Ash")
+            {
+                category = BlockMaterialCategory.Soil;
+                breakTime = 0.3f;
+            }
+            else if (displayName.Contains("Grass") || displayName == "Snow" || displayName == "Fungus")
+            {
+                category = BlockMaterialCategory.Soft;
+                breakTime = 0.25f;
+            }
+
+            blockObject.FindProperty("materialCategory").enumValueIndex = (int)category;
+            blockObject.FindProperty("breakTime").floatValue = breakTime;
         }
 
         static void EnsureFolder(string path)
