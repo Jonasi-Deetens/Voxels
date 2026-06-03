@@ -102,7 +102,7 @@ namespace Voxels.Rendering
             FlatHexGeometry.GetBlockCorners(bottomCenter, blockSize, bottomCornerScratch);
             FlatHexGeometry.GetBlockCorners(topCenter, blockSize, topCornerScratch);
 
-            if (ShouldShowTopFace(column, endLayer, maxLayer, true))
+            if (ShouldEmitColumnTop(worldHex, column, endLayer, maxLayer, blockId))
             {
                 AddPolygon(meshData, materialIndex, topCornerScratch, 6, Vector3.up);
             }
@@ -153,6 +153,35 @@ namespace Voxels.Rendering
             {
                 BlockId neighborId = neighborColumn.GetBlock(layer);
                 if (neighborId != blockId || neighborId.IsAir)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        bool ShouldEmitColumnTop(
+            in HexCoord worldHex,
+            BlockColumn column,
+            int endLayer,
+            int maxLayer,
+            BlockId blockId)
+        {
+            if (!ShouldShowTopFace(column, endLayer, maxLayer, true))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < HexCoord.NeighborOffsets.Length; i++)
+            {
+                HexCoord neighborHex = worldHex.Add(HexCoord.NeighborOffsets[i]);
+                if (!world.TryGetColumn(neighborHex, out BlockColumn neighborColumn))
+                {
+                    continue;
+                }
+
+                if (neighborColumn.GetBlock(endLayer) == blockId)
                 {
                     return false;
                 }

@@ -10,12 +10,19 @@ namespace Voxels.Runtime
 
         readonly BlockId[] slots = new BlockId[SlotCount];
         int selectedIndex;
+        PlayerInventory inventory;
 
         public int SelectedIndex => selectedIndex;
         public BlockId SelectedBlock => slots[selectedIndex];
 
-        public void Initialize(BlockDefinition[] availableBlocks, BlockRegistry registry)
+        public void Initialize(BlockDefinition[] availableBlocks, BlockRegistry registry, PlayerInventory playerInventory = null)
         {
+            inventory = playerInventory;
+            if (VoxelsModConfig.TryApplyHotbar(this, registry))
+            {
+                return;
+            }
+
             if (registry != null)
             {
                 BlockHotbarPalette.ApplyToHotbar(this, registry);
@@ -24,6 +31,8 @@ namespace Voxels.Runtime
 
             SetSlotsFromDefinitions(availableBlocks);
         }
+
+        public void BindInventory(PlayerInventory playerInventory) => inventory = playerInventory;
 
         public void SetSlots(BlockId[] blockIds)
         {
@@ -67,10 +76,33 @@ namespace Voxels.Runtime
             selectedIndex = 0;
         }
 
+        public bool CanUseSelectedBlock(bool creative) =>
+            creative || inventory == null || inventory.HasAtLeast(SelectedBlock);
+
+        public bool IsSlotEmptyForGameplay(int index, bool creative)
+        {
+            if (creative)
+            {
+                return false;
+            }
+
+            BlockId id = GetSlot(index);
+            return !id.IsAir && inventory != null && inventory.GetCount(id) <= 0;
+        }
+
         public void SelectSlot(int index) => selectedIndex = Mathf.Clamp(index, 0, SlotCount - 1);
 
         public void SelectBlock(BlockId blockId)
         {
+            for (int i = 0; i < SlotCount; i++)
+            {
+                if (slots[i] == blockId && HasStackForSlot(i))
+                {
+                    selectedIndex = i;
+                    return;
+                }
+            }
+
             for (int i = 0; i < SlotCount; i++)
             {
                 if (slots[i] == blockId)
@@ -81,6 +113,17 @@ namespace Voxels.Runtime
             }
 
             slots[selectedIndex] = blockId;
+        }
+
+        bool HasStackForSlot(int index)
+        {
+            if (inventory == null)
+            {
+                return true;
+            }
+
+            BlockId id = GetSlot(index);
+            return id.IsAir || inventory.GetCount(id) > 0;
         }
 
         void Update()

@@ -121,6 +121,8 @@ namespace Voxels.Runtime
 
         public static bool WasCycleToolPressedThisFrame() => WasKeyPressed(KeyCode.T);
 
+        public static bool WasCraftPressedThisFrame() => WasKeyPressed(KeyCode.G);
+
         public static bool WasHotbarSlotPressed(int index)
         {
             if (index < 0 || index > 8)
@@ -157,6 +159,7 @@ namespace Voxels.Runtime
                 KeyCode.F4 => keyboard.f4Key.wasPressedThisFrame,
                 KeyCode.F5 => keyboard.f5Key.wasPressedThisFrame,
                 KeyCode.F6 => keyboard.f6Key.wasPressedThisFrame,
+                KeyCode.G => keyboard.gKey.wasPressedThisFrame,
                 KeyCode.T => keyboard.tKey.wasPressedThisFrame,
                 KeyCode.Alpha1 => keyboard.digit1Key.wasPressedThisFrame,
                 KeyCode.Alpha2 => keyboard.digit2Key.wasPressedThisFrame,

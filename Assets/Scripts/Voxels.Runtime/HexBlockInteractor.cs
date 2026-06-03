@@ -3,6 +3,7 @@ using UnityEngine;
 using Voxels.Core.Blocks;
 using Voxels.Core.Hex;
 using Voxels.World;
+using Voxels.World.Generation;
 
 namespace Voxels.Runtime
 {
@@ -30,6 +31,7 @@ namespace Voxels.Runtime
 
         public float BreakProgress => breaking && breakDuration > 0f ? Mathf.Clamp01(breakTimer / breakDuration) : 0f;
         public bool IsBreaking => breaking;
+        public bool HasBlockTarget { get; private set; }
 
         public void Initialize(
             HexWorld world,
@@ -61,6 +63,9 @@ namespace Voxels.Runtime
             {
                 return;
             }
+
+
+            HasBlockTarget = TryGetTarget(false, out _);
 
             if (GameInput.WasCreativeTogglePressedThisFrame())
             {
@@ -191,10 +196,19 @@ namespace Voxels.Runtime
             chunkManager.RebuildChunksForWorldHex(breakTarget.WorldHex, scroller.PlayerWorldHex);
             feedback?.PlayBreak(GetBlockWorldPosition(breakTarget));
 
-            if (!existing.IsAir && inventory != null)
+            if (!existing.IsAir)
             {
-                inventory.Add(existing);
+                if (IsCreative())
+                {
+                    inventory?.Add(existing);
+                }
+                else
+                {
+                    BlockPickup.Spawn(existing, GetBlockWorldPosition(breakTarget), hexWorld.BlockRegistry);
+                }
             }
+
+            WaterFlowUtility.SettleAround(hexWorld, breakTarget.WorldHex, settings);
 
             breaking = false;
         }
@@ -224,6 +238,11 @@ namespace Voxels.Runtime
                 return;
             }
 
+            if (!creative && hotbar != null && !hotbar.CanUseSelectedBlock(false))
+            {
+                return;
+            }
+
             BlockId placeId = ResolvePlaceBlock();
             if (placeId.IsAir)
             {
@@ -246,6 +265,7 @@ namespace Voxels.Runtime
             hexWorld.MarkColumnDirty(target.WorldHex);
             chunkManager.RebuildChunksForWorldHex(target.WorldHex, scroller.PlayerWorldHex);
             feedback?.PlayPlace(GetBlockWorldPosition(target));
+            WaterFlowUtility.SettleAround(hexWorld, target.WorldHex, settings);
         }
 
         bool IsCreative() =>

@@ -11,6 +11,51 @@ namespace Voxels.EditorTools
 {
     public static class VoxelsSetupMenu
     {
+        static void AssignBiomeAmbientLoops()
+        {
+            string[] biomePaths = Directory.GetFiles("Assets/Data/Biomes", "Biome_*.asset", SearchOption.TopDirectoryOnly);
+            for (int i = 0; i < biomePaths.Length; i++)
+            {
+                var biome = AssetDatabase.LoadAssetAtPath<BiomeDefinition>(biomePaths[i]);
+                if (biome == null)
+                {
+                    continue;
+                }
+
+                string clipPath = $"Assets/Data/Audio/Ambient_{biome.name}.asset";
+                EnsureFolder("Assets/Data/Audio");
+                AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clipPath);
+                if (clip == null)
+                {
+                    clip = CreateAmbientLoopClip($"Ambient_{biome.name}", 110f + i * 7f);
+                    AssetDatabase.CreateAsset(clip, clipPath);
+                }
+
+                SerializedObject biomeObject = new SerializedObject(biome);
+                biomeObject.FindProperty("ambientLoop").objectReferenceValue = clip;
+                biomeObject.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        static AudioClip CreateAmbientLoopClip(string clipName, float baseFrequency)
+        {
+            const int sampleRate = 22050;
+            const float durationSeconds = 2f;
+            int sampleCount = Mathf.RoundToInt(sampleRate * durationSeconds);
+            var samples = new float[sampleCount];
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float t = i / (float)sampleRate;
+                float tone = Mathf.Sin(2f * Mathf.PI * baseFrequency * t);
+                float wobble = Mathf.Sin(2f * Mathf.PI * (baseFrequency * 0.5f) * t) * 0.35f;
+                samples[i] = (tone + wobble) * 0.04f;
+            }
+
+            var clip = AudioClip.Create(clipName, sampleCount, 1, sampleRate, false);
+            clip.SetData(samples, 0);
+            return clip;
+        }
+
         const string DataRoot = "Assets/Data";
         const string MaterialsRoot = "Assets/Materials";
 
@@ -159,6 +204,8 @@ namespace Voxels.EditorTools
             worldObject.FindProperty("boundaryWallHeight").floatValue = 96f;
             worldObject.FindProperty("useBackgroundMeshBuild").boolValue = true;
             worldObject.ApplyModifiedPropertiesWithoutUndo();
+
+            AssignBiomeAmbientLoops();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();

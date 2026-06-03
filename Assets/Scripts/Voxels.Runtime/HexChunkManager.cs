@@ -39,6 +39,7 @@ namespace Voxels.Runtime
         FlatHexColumnMeshBuilder columnMeshBuilder;
         FlatWaterMeshBuilder waterMeshBuilder;
         WorldRuntimeProfiler runtimeProfiler;
+        WorldRegionLoader regionLoader;
         HexCoord lastPlayerHex = new HexCoord(int.MinValue, int.MinValue);
         bool isLoading;
         Coroutine meshQueueRoutine;
@@ -62,6 +63,7 @@ namespace Voxels.Runtime
             columnMeshBuilder = new FlatHexColumnMeshBuilder(hexWorld);
             waterMeshBuilder = new FlatWaterMeshBuilder(hexWorld);
             runtimeProfiler = FindAnyObjectByType<WorldRuntimeProfiler>();
+            regionLoader = FindAnyObjectByType<WorldRegionLoader>();
         }
 
         public void RefreshAroundPlayer(bool forceRebuildMeshes = false)
@@ -184,6 +186,11 @@ namespace Voxels.Runtime
                 }
             }
 
+            foreach (HexCoord dirtyHex in hexWorld.GetDirtyHexes())
+            {
+                protectedHexes.Add(dirtyHex);
+            }
+
             hexWorld.TrimCache(protectedHexes);
 
             var frameBudget = new BuildFrameBudget(settings.BuildFrameBudgetMs);
@@ -221,7 +228,14 @@ namespace Voxels.Runtime
                 yield break;
             }
 
-            terrainGenerator.GenerateChunk(hexWorld, chunk, settings.ChunkMeshPadding);
+            if (regionLoader != null && regionLoader.TryLoadRegionForChunk(chunk))
+            {
+                // Region columns restored from save.
+            }
+            else
+            {
+                terrainGenerator.GenerateChunk(hexWorld, chunk, settings.ChunkMeshPadding);
+            }
             loadedChunks[chunk] = new LoadedChunk
             {
                 CoreHexes = HexChunkUtility.CollectChunkHexes(hexWorld, chunk, settings.ChunkSizeHex),

@@ -102,11 +102,15 @@ namespace Voxels.Runtime
             gameHud = GetOrAdd<GameHudView>();
             GetOrAdd<PlayerGameplayState>();
             PlayerInventory playerInventory = GetOrAdd<PlayerInventory>();
+            WorldRegionLoader regionLoader = GetOrAdd<WorldRegionLoader>();
+            CraftingSystem craftingSystem = GetOrAdd<CraftingSystem>();
             BiomeAmbienceController biomeAmbience = GetOrAdd<BiomeAmbienceController>();
             NightCreatureSpawner nightSpawner = GetOrAdd<NightCreatureSpawner>();
             DayNightGameplayController dayNight = GetOrAdd<DayNightGameplayController>();
 
-            blockHotbar.Initialize(blockDefinitions, registry);
+            blockHotbar.Initialize(blockDefinitions, registry, playerInventory);
+            regionLoader.Initialize(hexWorld, settings);
+            craftingSystem.Initialize(playerInventory, registry);
             chunkManager.Initialize(hexWorld, settings, worldScroller, chunksParent);
             worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), HexCoord.Zero, hexWorld);
 
@@ -128,7 +132,7 @@ namespace Voxels.Runtime
                 yield return null;
             }
 
-            Transform player = SetupPlayer(spawnCamera);
+            Transform player = SetupPlayer(spawnCamera, playerInventory);
             worldBoundary.Initialize(settings, worldScroller, worldRootTransform);
             SetupCelestial(player);
             skyController.Initialize(celestialSystem, settings);
@@ -183,7 +187,7 @@ namespace Voxels.Runtime
             return chunkManager != null && chunkManager.LoadedChunkCount > 0;
         }
 
-        Transform SetupPlayer(FlatSpawnCamera camera)
+        Transform SetupPlayer(FlatSpawnCamera camera, PlayerInventory inventory)
         {
             Transform player = ResolvePlayerTransform();
             if (player == null)
@@ -218,6 +222,14 @@ namespace Voxels.Runtime
 
             playerController.SnapToGround();
             playerController.enabled = true;
+
+            PickupCollector pickupCollector = player.GetComponent<PickupCollector>();
+            if (pickupCollector == null)
+            {
+                pickupCollector = player.gameObject.AddComponent<PickupCollector>();
+            }
+
+            pickupCollector.Initialize(inventory);
             return player;
         }
 
@@ -255,6 +267,28 @@ namespace Voxels.Runtime
             {
                 Destroy(worldRootTransform.gameObject);
                 worldRootTransform = null;
+            }
+        }
+
+        static void GrantStarterInventory(PlayerInventory inventory, BlockRegistry registry)
+        {
+            if (inventory == null || registry == null)
+            {
+                return;
+            }
+
+            string[] names =
+            {
+                "Grass", "Dirt", "Stone", "Sand", "Gravel", "Snow", "Dark Grass", "Fungus", "Crystal",
+            };
+            int[] amounts = { 24, 24, 16, 12, 12, 8, 8, 6, 4 };
+
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (registry.TryGetByName(names[i], out BlockDefinition definition))
+                {
+                    inventory.Add(definition.BlockId, amounts[i]);
+                }
             }
         }
 

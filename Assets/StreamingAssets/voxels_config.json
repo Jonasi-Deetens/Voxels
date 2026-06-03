@@ -1,0 +1,19 @@
+{
+  "hotbarBlockNames": [
+    "Grass",
+    "Dirt",
+    "Stone",
+    "Sand",
+    "Gravel",
+    "Snow",
+    "Dark Grass",
+    "Fungus",
+    "Crystal"
+  ],
+  "structureDensity": 0.06,
+  "structurePois": [
+    { "biomeNameContains": "Forest", "poiKind": "Pine", "weight": 1.2 },
+    { "biomeNameContains": "Desert", "poiKind": "Cactus", "weight": 1.1 },
+    { "biomeNameContains": "Fungal", "poiKind": "MushroomCluster", "weight": 1.3 }
+  ]
+}

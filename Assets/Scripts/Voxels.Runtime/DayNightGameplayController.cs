@@ -25,7 +25,14 @@ namespace Voxels.Runtime
       }
 
       LightLevel = Mathf.RoundToInt(Mathf.Lerp(0f, 15f, celestial.SunHeight));
-      creatureSpawner?.Tick(IsNight, LightLevel);
+      if (IsNight)
+      {
+        creatureSpawner?.Tick(true, LightLevel);
+      }
+      else
+      {
+        creatureSpawner?.DespawnAll();
+      }
     }
   }
 }

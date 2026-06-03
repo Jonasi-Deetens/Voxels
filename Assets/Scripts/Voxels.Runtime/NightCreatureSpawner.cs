@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Voxels.Core.Hex;
 using Voxels.World;
@@ -10,10 +11,11 @@ namespace Voxels.Runtime
     [SerializeField] float spawnRadius = 24f;
     [SerializeField] float spawnInterval = 4f;
 
+    readonly List<GameObject> activeCreatures = new List<GameObject>();
+
     WorldScroller scroller;
     WorldSettings settings;
     float spawnTimer;
-    int activeCount;
 
     public void Initialize(WorldScroller worldScroller, WorldSettings worldSettings)
     {
@@ -23,13 +25,18 @@ namespace Voxels.Runtime
 
     public void Tick(bool isNight, int lightLevel)
     {
-      if (!isNight || scroller?.HexWorld == null)
+      if (!isNight)
+      {
+        return;
+      }
+
+      if (scroller?.HexWorld == null)
       {
         return;
       }
 
       spawnTimer -= Time.deltaTime;
-      if (spawnTimer > 0f || activeCount >= maxCreatures)
+      if (spawnTimer > 0f || activeCreatures.Count >= maxCreatures)
       {
         return;
       }
@@ -44,14 +51,32 @@ namespace Voxels.Runtime
       TrySpawnCreature(biome);
     }
 
+    public void DespawnAll()
+    {
+      for (int i = activeCreatures.Count - 1; i >= 0; i--)
+      {
+        if (activeCreatures[i] != null)
+        {
+          Destroy(activeCreatures[i]);
+        }
+      }
+
+      activeCreatures.Clear();
+    }
+
     void TrySpawnCreature(BiomeDefinition biome)
     {
+      HexCoord playerHex = scroller.PlayerWorldHex;
       Vector2 offset = Random.insideUnitCircle * spawnRadius;
-      var spawnPos = new Vector3(offset.x, 2f, offset.y);
-      var creature = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+      float surfaceY = scroller.HexWorld.GetSurfaceWorldY(playerHex) + 1.2f;
+      Transform worldRoot = scroller.WorldRoot;
+      Vector3 local = new Vector3(offset.x, surfaceY, offset.y);
+      Vector3 spawnPos = worldRoot != null ? worldRoot.TransformPoint(local) : local;
+
+      var creature = GameObject.CreatePrimitive(PrimitiveType.Capsule);
       creature.name = $"NightCreature_{biome.name}";
       creature.transform.position = spawnPos;
-      creature.transform.localScale = Vector3.one * 0.35f;
+      creature.transform.localScale = new Vector3(0.45f, 0.55f, 0.45f);
 
       var renderer = creature.GetComponent<Renderer>();
       if (renderer != null)
@@ -59,13 +84,22 @@ namespace Voxels.Runtime
         renderer.material.color = biome.NightAmbientColor * 1.4f;
       }
 
+      var collider = creature.GetComponent<CapsuleCollider>();
+      if (collider != null)
+      {
+        collider.isTrigger = true;
+      }
+
       var rb = creature.AddComponent<Rigidbody>();
       rb.useGravity = false;
       creature.AddComponent<NightCreatureLifetime>().Initialize(this, 18f);
-      activeCount++;
+      activeCreatures.Add(creature);
     }
 
-    public void NotifyDespawned() => activeCount = Mathf.Max(0, activeCount - 1);
+    internal void NotifyDespawned(GameObject creature)
+    {
+      activeCreatures.Remove(creature);
+    }
   }
 
   sealed class NightCreatureLifetime : MonoBehaviour
@@ -84,7 +118,7 @@ namespace Voxels.Runtime
       life -= Time.deltaTime;
       if (life <= 0f)
       {
-        spawner?.NotifyDespawned();
+        spawner?.NotifyDespawned(gameObject);
         Destroy(gameObject);
       }
     }

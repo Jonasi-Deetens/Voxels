@@ -25,6 +25,9 @@ namespace Voxels.Runtime
     HexBlockInteractor blockInteractor;
     PlayerInventory inventory;
     Slider breakSlider;
+    Image crosshairImage;
+    Image debugPanel;
+    Image[] hotbarPanels;
 
     const int MinimapSize = 25;
 
@@ -126,6 +129,45 @@ namespace Voxels.Runtime
       breakSlider.minValue = 0f;
       breakSlider.maxValue = 1f;
       breakSlider.gameObject.SetActive(false);
+
+      debugPanel = CreatePanel(canvasObject.transform, "DebugPanel", new Color(0f, 0f, 0f, 0.45f));
+      var debugPanelRect = debugPanel.rectTransform;
+      debugPanelRect.anchorMin = new Vector2(0f, 1f);
+      debugPanelRect.anchorMax = new Vector2(0f, 1f);
+      debugPanelRect.pivot = new Vector2(0f, 1f);
+      debugPanelRect.anchoredPosition = new Vector2(8f, -8f);
+      debugPanelRect.sizeDelta = new Vector2(468f, 228f);
+      debugText.transform.SetParent(debugPanelRect, false);
+      debugRect.anchorMin = Vector2.zero;
+      debugRect.anchorMax = Vector2.one;
+      debugRect.offsetMin = new Vector2(8f, 8f);
+      debugRect.offsetMax = new Vector2(-8f, -8f);
+
+      hotbarPanels = new Image[hotbarLabels.Length];
+      for (int i = 0; i < hotbarPanels.Length; i++)
+      {
+        hotbarPanels[i] = CreatePanel(hotbarRoot.transform, $"SlotBg{i + 1}", new Color(0f, 0f, 0f, 0.55f));
+        var panelRect = hotbarPanels[i].rectTransform;
+        panelRect.anchorMin = hotbarLabels[i].rectTransform.anchorMin;
+        panelRect.anchorMax = hotbarLabels[i].rectTransform.anchorMax;
+        panelRect.offsetMin = hotbarLabels[i].rectTransform.offsetMin;
+        panelRect.offsetMax = hotbarLabels[i].rectTransform.offsetMax;
+        hotbarLabels[i].transform.SetAsLastSibling();
+      }
+
+      crosshairImage = CreatePanel(canvasObject.transform, "Crosshair", new Color(1f, 1f, 1f, 0.85f));
+      var crossRect = crosshairImage.rectTransform;
+      crossRect.anchorMin = crossRect.anchorMax = new Vector2(0.5f, 0.5f);
+      crossRect.sizeDelta = new Vector2(10f, 10f);
+    }
+
+    static Image CreatePanel(Transform parent, string name, Color color)
+    {
+      var panelObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+      panelObject.transform.SetParent(parent, false);
+      var image = panelObject.GetComponent<Image>();
+      image.color = color;
+      return image;
     }
 
     static Text CreateText(Transform parent, string name, int fontSize, TextAnchor anchor)
@@ -182,13 +224,23 @@ namespace Voxels.Runtime
       }
 
       BlockRegistry registry = scroller.HexWorld.BlockRegistry;
+      bool creative = PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
       for (int i = 0; i < hotbarLabels.Length; i++)
       {
         bool selected = i == hotbar.SelectedIndex;
         string count = inventory != null ? inventory.FormatCount(hotbar.GetSlot(i)) : string.Empty;
         string suffix = string.IsNullOrEmpty(count) ? string.Empty : $" x{count}";
+        bool empty = hotbar.IsSlotEmptyForGameplay(i, !creative);
         hotbarLabels[i].text = $"{i + 1}. {hotbar.GetSlotLabel(i, registry)}{suffix}";
-        hotbarLabels[i].color = selected ? new Color(1f, 0.92f, 0.45f) : Color.white;
+        hotbarLabels[i].color = empty
+          ? new Color(0.55f, 0.55f, 0.55f)
+          : selected ? new Color(1f, 0.92f, 0.45f) : Color.white;
+        if (hotbarPanels != null && i < hotbarPanels.Length && hotbarPanels[i] != null)
+        {
+          hotbarPanels[i].color = selected
+            ? new Color(0.2f, 0.18f, 0.08f, 0.75f)
+            : new Color(0f, 0f, 0f, 0.55f);
+        }
       }
     }
 
@@ -203,15 +255,17 @@ namespace Voxels.Runtime
       bool creative = PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
       string tool = toolState != null ? toolState.ActiveTool.ToString() : "Hand";
       string perf = profiler != null ? profiler.BuildSummary() : string.Empty;
+      DayNightGameplayController dayNight = FindAnyObjectByType<DayNightGameplayController>();
+      int light = dayNight != null ? dayNight.LightLevel : 15;
 
       debugText.text =
         $"Debug (F3)\n" +
         $"Hex ({hex.Q}, {hex.R})  creative {creative}  tool {tool}\n" +
         $"Edge {scroller.HexWorld.DistanceToEdge(hex)}  cache {scroller.HexWorld.DataCache.CachedCellCount}\n" +
         $"Chunks {chunkManager?.LoadedChunkCount}  queue {chunkManager?.PendingMeshJobs}\n" +
-        $"Sun {celestial?.SunHeight:0.00}  TOD {celestial?.TimeOfDay:0.00}\n" +
+        $"Sun {celestial?.SunHeight:0.00}  TOD {celestial?.TimeOfDay:0.00}  light {light}\n" +
         $"{perf}\n" +
-        $"LMB break | RMB place | MMB pick | T tool | F5/F6 save";
+        $"LMB break | RMB place | MMB pick | T tool | G craft | F5/F6 save";
     }
 
     void UpdateBreakBar()
@@ -221,7 +275,7 @@ namespace Voxels.Runtime
         return;
       }
 
-      bool show = blockInteractor.IsBreaking;
+      bool show = blockInteractor.HasBlockTarget && blockInteractor.IsBreaking;
       breakSlider.gameObject.SetActive(show);
       if (show)
       {

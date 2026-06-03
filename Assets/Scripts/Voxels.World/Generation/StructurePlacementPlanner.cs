@@ -1,5 +1,6 @@
 using Unity.Mathematics;
 using Voxels.Core.Hex;
+using Voxels.World.Modding;
 
 namespace Voxels.World.Generation
 {
@@ -33,7 +34,7 @@ namespace Voxels.World.Generation
             }
 
             float roll = Hash01(worldHex, seed, 701);
-            return roll <= settings.StructureDensity;
+            return roll <= VoxelsModConfig.ResolveStructureDensity(settings);
         }
 
         public static bool HasStructureMarker(HexWorld world, in HexCoord hex)

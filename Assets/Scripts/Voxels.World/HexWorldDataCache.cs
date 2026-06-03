@@ -87,6 +87,11 @@ namespace Voxels.World
 
         public bool HasColumn(in HexCoord hex) => entries.ContainsKey(hex);
 
+        public bool RemoveColumn(in HexCoord hex)
+        {
+            return RemoveEntry(hex);
+        }
+
         public IEnumerable<KeyValuePair<HexCoord, BlockColumn>> EnumerateColumns()
         {
             foreach (KeyValuePair<HexCoord, CacheEntry> entry in entries)
@@ -134,11 +139,11 @@ namespace Voxels.World
             entry.LruNode = lruOrder.AddFirst(entry.LruNode.Value);
         }
 
-        void RemoveEntry(in HexCoord hex)
+        bool RemoveEntry(in HexCoord hex)
         {
             if (!entries.TryGetValue(hex, out CacheEntry entry))
             {
-                return;
+                return false;
             }
 
             if (entry.LruNode != null)
@@ -147,6 +152,7 @@ namespace Voxels.World
             }
 
             entries.Remove(hex);
+            return true;
         }
     }
 }
