@@ -38,6 +38,10 @@ namespace Voxels.World
         [SerializeField] float buildFrameBudgetMs = 16f;
         [SerializeField] bool createTerrainColliders = true;
         [SerializeField] float floatingOriginRecenterDistance = 1000f;
+        [SerializeField] int columnCacheMaxCells = 8192;
+        [SerializeField] int chunkMeshPadding = 1;
+        [SerializeField] bool showWorldBoundary = true;
+        [SerializeField] float boundaryWallHeight = 96f;
 
         public int Seed => seed;
         public BiomeCatalog BiomeCatalog => biomeCatalog;
@@ -60,6 +64,10 @@ namespace Voxels.World
         public float BuildFrameBudgetMs => buildFrameBudgetMs;
         public bool CreateTerrainColliders => createTerrainColliders;
         public float FloatingOriginRecenterDistance => floatingOriginRecenterDistance;
+        public int ColumnCacheMaxCells => columnCacheMaxCells;
+        public int ChunkMeshPadding => chunkMeshPadding;
+        public bool ShowWorldBoundary => showWorldBoundary;
+        public float BoundaryWallHeight => boundaryWallHeight;
 
         public float ResolveOrbitRadius()
         {

@@ -18,17 +18,17 @@ namespace Voxels.World.Climate
         }
 
         public ClimateSample Sample(
-            in HexCoord absoluteHex,
+            in HexCoord worldHex,
             int surfaceHeight,
             int seaLevel,
             int coastDistance)
         {
-            float latitude = ComputeLatitude(absoluteHex);
+            float latitude = ComputeLatitude(worldHex);
             bool isOcean = surfaceHeight < seaLevel;
             int elevationAboveSea = math.max(0, surfaceHeight - seaLevel);
 
             float continentality = math.saturate(coastDistance / 24f);
-            float2 noisePos = FlatHexGrid.AxialToWorld(absoluteHex, settings.BlockSize).xz;
+            float2 noisePos = FlatHexGrid.AxialToWorld(worldHex, settings.BlockSize).xz;
             float leyLine = noise.snoise(noisePos * 0.12f + SeedOffset(401).xy);
             leyLine = leyLine * 0.5f + 0.5f;
 

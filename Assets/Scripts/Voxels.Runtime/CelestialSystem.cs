@@ -19,9 +19,11 @@ namespace Voxels.Runtime
 
         WorldSettings settings;
         Light sunLight;
+        Light moonLight;
         Transform playerTransform;
         float orbitPlaneAngle;
         float timeOfDay;
+        Color defaultAmbient;
 
         public float TimeOfDay => timeOfDay;
 
@@ -30,8 +32,11 @@ namespace Voxels.Runtime
             settings = worldSettings;
             sunLight = directionalLight != null ? directionalLight : FindSunLight();
             playerTransform = player;
+            defaultAmbient = RenderSettings.ambientLight;
             orbitPlaneAngle = (settings.Seed * 0.314159f) % (math.PI * 2f);
+
             EnsureSkyRoot();
+            EnsureMoonLight();
             ApplyCelestial(0f);
         }
 
@@ -88,12 +93,45 @@ namespace Voxels.Runtime
                 moonVisual.localScale = Vector3.one * moonDiameter;
             }
 
+            float sunHeight = math.saturate(sunDirection.y * 0.5f + 0.5f);
+            float moonHeight = math.saturate(moonDirection.y * 0.5f + 0.5f);
+
             if (sunLight != null)
             {
                 Vector3 lightDirection = (sunPosition - origin).normalized;
                 sunLight.transform.rotation = Quaternion.LookRotation(-lightDirection, Vector3.up);
+                sunLight.intensity = math.lerp(0.04f, 1.15f, sunHeight);
+                sunLight.color = Color.Lerp(new Color(0.45f, 0.5f, 0.65f), new Color(1f, 0.95f, 0.85f), sunHeight);
                 RenderSettings.sun = sunLight;
             }
+
+            if (moonLight != null)
+            {
+                Vector3 moonLightDirection = (moonPosition - origin).normalized;
+                moonLight.transform.rotation = Quaternion.LookRotation(-moonLightDirection, Vector3.up);
+                moonLight.intensity = math.lerp(0f, 0.22f, moonHeight) * (1f - sunHeight * 0.85f);
+                moonLight.enabled = moonLight.intensity > 0.01f;
+            }
+
+            RenderSettings.ambientLight = Color.Lerp(
+                defaultAmbient * 0.35f,
+                defaultAmbient,
+                math.saturate(sunHeight * 1.1f));
+        }
+
+        void EnsureMoonLight()
+        {
+            if (moonLight != null)
+            {
+                return;
+            }
+
+            var moonLightObject = new GameObject("Moon Light");
+            moonLightObject.transform.SetParent(transform, false);
+            moonLight = moonLightObject.AddComponent<Light>();
+            moonLight.type = LightType.Directional;
+            moonLight.color = new Color(0.65f, 0.72f, 0.9f);
+            moonLight.shadows = LightShadows.None;
         }
 
         void EnsureSkyRoot()

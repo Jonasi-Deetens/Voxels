@@ -10,6 +10,18 @@ namespace Voxels.EditorTools
 {
     public static class VoxelsVerifyMenu
     {
+        static System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<HexCoord, BlockColumn>> GetAllColumns(HexWorld world)
+        {
+            int radius = world.Settings.WorldHexRadius;
+            for (int q = -radius; q <= radius; q++)
+            for (int r = -radius; r <= radius; r++)
+            {
+                var hex = new HexCoord(q, r);
+                if (world.IsInsideWorld(hex) && world.TryGetColumn(hex, out BlockColumn col))
+                    yield return new System.Collections.Generic.KeyValuePair<HexCoord, BlockColumn>(hex, col);
+            }
+        }
+
         [MenuItem("Voxels/Verify Build Pipeline")]
         public static void VerifyBuildPipeline()
         {
@@ -39,7 +51,7 @@ namespace Voxels.EditorTools
             generator.GenerateChunk(world, new ChunkCoord(0, 0));
 
             int landColumns = 0;
-            foreach (var entry in world.Columns.Columns)
+            foreach (var entry in GetAllColumns(world))
             {
                 if (entry.Value.SurfaceHeight >= settings.SeaLevelLayer)
                 {

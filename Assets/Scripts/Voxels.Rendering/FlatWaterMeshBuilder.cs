@@ -21,16 +21,16 @@ namespace Voxels.Rendering
 
         public ChunkMeshData BuildChunk(
             in HexCoord playerHex,
-            IReadOnlyList<HexCoord> absoluteHexes)
+            IReadOnlyList<HexCoord> worldHexes)
         {
             var meshData = new ChunkMeshData();
             int seaLevel = world.Settings.SeaLevelLayer;
             Material waterMaterial = null;
 
-            for (int i = 0; i < absoluteHexes.Count; i++)
+            for (int i = 0; i < worldHexes.Count; i++)
             {
-                HexCoord absoluteHex = absoluteHexes[i];
-                if (!world.Columns.TryGetColumn(absoluteHex, out BlockColumn column))
+                HexCoord worldHex = worldHexes[i];
+                if (!world.TryGetColumn(worldHex, out BlockColumn column))
                 {
                     continue;
                 }
@@ -55,7 +55,7 @@ namespace Voxels.Rendering
                     }
 
                     waterMaterial ??= definition.Material;
-                    HexCoord localHex = absoluteHex.Subtract(playerHex);
+                    HexCoord localHex = worldHex.Subtract(playerHex);
                     float3 center = FlatHexGrid.AxialToWorld(localHex, blockSize);
                     float y = (layer + 1) * blockSize - 0.02f;
                     center.y = y;

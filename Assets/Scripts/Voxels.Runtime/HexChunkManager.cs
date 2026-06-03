@@ -16,10 +16,18 @@ namespace Voxels.Runtime
             public GameObject WaterObject;
             public Mesh TerrainMesh;
             public Mesh WaterMesh;
-            public List<HexCoord> WorldHexes;
+            public List<HexCoord> CoreHexes;
+        }
+
+        sealed class MeshBuildRequest
+        {
+            public ChunkCoord Chunk;
+            public HexCoord PlayerHex;
         }
 
         readonly Dictionary<ChunkCoord, LoadedChunk> loadedChunks = new Dictionary<ChunkCoord, LoadedChunk>();
+        readonly Queue<MeshBuildRequest> meshQueue = new Queue<MeshBuildRequest>();
+        readonly HashSet<HexCoord> protectedHexes = new HashSet<HexCoord>();
 
         HexWorld hexWorld;
         WorldSettings settings;
@@ -30,8 +38,11 @@ namespace Voxels.Runtime
         FlatWaterMeshBuilder waterMeshBuilder;
         HexCoord lastPlayerHex = new HexCoord(int.MinValue, int.MinValue);
         bool isLoading;
+        Coroutine meshQueueRoutine;
 
         public HexWorld HexWorld => hexWorld;
+        public int LoadedChunkCount => loadedChunks.Count;
+        public int PendingMeshJobs => meshQueue.Count;
 
         public void Initialize(
             HexWorld world,
@@ -71,11 +82,35 @@ namespace Voxels.Runtime
             StartCoroutine(RefreshChunksAsync(playerHex));
         }
 
+        public void ClearMeshesOnly()
+        {
+            meshQueue.Clear();
+            var chunks = new List<ChunkCoord>(loadedChunks.Keys);
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                UnloadChunkMeshes(chunks[i]);
+            }
+        }
+
+        public void ClearAll()
+        {
+            meshQueue.Clear();
+            var chunks = new List<ChunkCoord>(loadedChunks.Keys);
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                UnloadChunk(chunks[i]);
+            }
+
+            hexWorld?.DataCache.Clear();
+            protectedHexes.Clear();
+            lastPlayerHex = new HexCoord(int.MinValue, int.MinValue);
+        }
+
         public void RebuildAllMeshes(HexCoord playerHex)
         {
             foreach (ChunkCoord chunk in new List<ChunkCoord>(loadedChunks.Keys))
             {
-                RebuildChunkMesh(chunk, playerHex);
+                BuildChunkMeshes(chunk, playerHex);
             }
         }
 
@@ -84,11 +119,16 @@ namespace Voxels.Runtime
             isLoading = true;
             int chunkSize = settings.ChunkSizeHex;
             int viewRadius = settings.ViewRadiusChunks;
+            int padding = settings.ChunkMeshPadding;
+
             var needed = new HashSet<ChunkCoord>();
             foreach (ChunkCoord chunk in HexChunkUtility.EnumerateChunksAround(playerHex, viewRadius, chunkSize))
             {
                 needed.Add(chunk);
             }
+
+            HexChunkUtility.CollectProtectedHexes(
+                hexWorld, playerHex, viewRadius, chunkSize, padding, protectedHexes);
 
             var toUnload = new List<ChunkCoord>();
             foreach (ChunkCoord existing in loadedChunks.Keys)
@@ -102,19 +142,25 @@ namespace Voxels.Runtime
             for (int i = 0; i < toUnload.Count; i++)
             {
                 UnloadChunk(toUnload[i]);
-                yield return null;
+                if (i % 2 == 0)
+                {
+                    yield return null;
+                }
             }
+
+            hexWorld.TrimCache(protectedHexes);
 
             var frameBudget = new BuildFrameBudget(settings.BuildFrameBudgetMs);
             foreach (ChunkCoord chunk in needed)
             {
                 if (!loadedChunks.ContainsKey(chunk))
                 {
-                    yield return LoadChunkAsync(chunk, playerHex, frameBudget);
+                    yield return LoadChunkDataAsync(chunk, frameBudget);
+                    EnqueueMeshBuild(chunk, playerHex);
                 }
                 else
                 {
-                    RebuildChunkMesh(chunk, playerHex);
+                    BuildChunkMeshes(chunk, playerHex);
                 }
 
                 if (frameBudget.ShouldYield())
@@ -124,55 +170,26 @@ namespace Voxels.Runtime
                 }
             }
 
+            EnsureMeshQueueRunning();
             isLoading = false;
         }
 
-        IEnumerator LoadChunkAsync(ChunkCoord chunk, HexCoord playerHex, BuildFrameBudget frameBudget)
+        IEnumerator LoadChunkDataAsync(ChunkCoord chunk, BuildFrameBudget frameBudget)
         {
-            terrainGenerator.GenerateChunk(hexWorld, chunk);
-            List<HexCoord> worldHexes = HexChunkUtility.CollectChunkHexes(hexWorld, chunk, settings.ChunkSizeHex);
-            if (worldHexes.Count == 0)
+            if (!ChunkNeedsGeneration(chunk))
             {
+                loadedChunks[chunk] = new LoadedChunk
+                {
+                    CoreHexes = HexChunkUtility.CollectChunkHexes(hexWorld, chunk, settings.ChunkSizeHex),
+                };
                 yield break;
             }
 
-            ChunkMeshData terrainData = meshBuilder.BuildChunk(playerHex, worldHexes);
-            ChunkMeshData waterData = waterMeshBuilder.BuildChunk(playerHex, worldHexes);
-
-            var loaded = new LoadedChunk { WorldHexes = worldHexes };
-
-            if (!terrainData.IsEmpty)
+            terrainGenerator.GenerateChunk(hexWorld, chunk, settings.ChunkMeshPadding);
+            loadedChunks[chunk] = new LoadedChunk
             {
-                loaded.TerrainObject = new GameObject($"Chunk_{chunk.Q}_{chunk.R}");
-                loaded.TerrainObject.transform.SetParent(chunkRoot, false);
-
-                var meshFilter = loaded.TerrainObject.AddComponent<MeshFilter>();
-                var meshRenderer = loaded.TerrainObject.AddComponent<MeshRenderer>();
-                loaded.TerrainMesh = ChunkMeshFactory.CreateMesh(terrainData);
-                meshFilter.sharedMesh = loaded.TerrainMesh;
-                meshRenderer.sharedMaterials = ChunkMeshFactory.GetMaterials(terrainData);
-
-                if (settings.CreateTerrainColliders)
-                {
-                    var collider = loaded.TerrainObject.AddComponent<MeshCollider>();
-                    collider.sharedMesh = loaded.TerrainMesh;
-                    collider.cookingOptions = MeshColliderCookingOptions.CookForFasterSimulation;
-                }
-            }
-
-            if (!waterData.IsEmpty)
-            {
-                loaded.WaterObject = new GameObject($"Water_{chunk.Q}_{chunk.R}");
-                loaded.WaterObject.transform.SetParent(chunkRoot, false);
-
-                var waterFilter = loaded.WaterObject.AddComponent<MeshFilter>();
-                var waterRenderer = loaded.WaterObject.AddComponent<MeshRenderer>();
-                loaded.WaterMesh = ChunkMeshFactory.CreateMesh(waterData);
-                waterFilter.sharedMesh = loaded.WaterMesh;
-                waterRenderer.sharedMaterials = ChunkMeshFactory.GetMaterials(waterData);
-            }
-
-            loadedChunks[chunk] = loaded;
+                CoreHexes = HexChunkUtility.CollectChunkHexes(hexWorld, chunk, settings.ChunkSizeHex),
+            };
 
             if (frameBudget.ShouldYield())
             {
@@ -181,50 +198,136 @@ namespace Voxels.Runtime
             }
         }
 
-        void RebuildChunkMesh(ChunkCoord chunk, HexCoord playerHex)
+        bool ChunkNeedsGeneration(ChunkCoord chunk)
         {
-            if (!loadedChunks.TryGetValue(chunk, out LoadedChunk loaded) || loaded.WorldHexes == null)
+            List<HexCoord> core = HexChunkUtility.CollectChunkHexes(hexWorld, chunk, settings.ChunkSizeHex);
+            for (int i = 0; i < core.Count; i++)
+            {
+                if (!hexWorld.DataCache.HasColumn(core[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        void EnqueueMeshBuild(ChunkCoord chunk, HexCoord playerHex)
+        {
+            meshQueue.Enqueue(new MeshBuildRequest { Chunk = chunk, PlayerHex = playerHex });
+            EnsureMeshQueueRunning();
+        }
+
+        void EnsureMeshQueueRunning()
+        {
+            if (meshQueueRoutine == null && meshQueue.Count > 0)
+            {
+                meshQueueRoutine = StartCoroutine(ProcessMeshQueue());
+            }
+        }
+
+        IEnumerator ProcessMeshQueue()
+        {
+            var frameBudget = new BuildFrameBudget(settings.BuildFrameBudgetMs);
+            while (meshQueue.Count > 0)
+            {
+                MeshBuildRequest request = meshQueue.Dequeue();
+                BuildChunkMeshes(request.Chunk, request.PlayerHex);
+
+                if (frameBudget.ShouldYield())
+                {
+                    yield return null;
+                    frameBudget.MarkYield();
+                }
+            }
+
+            meshQueueRoutine = null;
+        }
+
+        void BuildChunkMeshes(ChunkCoord chunk, HexCoord playerHex)
+        {
+            if (!loadedChunks.TryGetValue(chunk, out LoadedChunk loaded) || loaded.CoreHexes == null)
             {
                 return;
             }
 
-            ChunkMeshData terrainData = meshBuilder.BuildChunk(playerHex, loaded.WorldHexes);
-            if (loaded.TerrainObject != null && loaded.TerrainMesh != null)
-            {
-                ReplaceMesh(loaded.TerrainMesh, terrainData, out loaded.TerrainMesh);
-                loaded.TerrainObject.GetComponent<MeshFilter>().sharedMesh = loaded.TerrainMesh;
-                loaded.TerrainObject.GetComponent<MeshRenderer>().sharedMaterials =
-                    ChunkMeshFactory.GetMaterials(terrainData);
+            ChunkMeshData terrainData = meshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
+            ChunkMeshData waterData = waterMeshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
 
-                var collider = loaded.TerrainObject.GetComponent<MeshCollider>();
-                if (collider != null)
+            if (loaded.TerrainObject == null && !terrainData.IsEmpty)
+            {
+                loaded.TerrainObject = new GameObject($"Chunk_{chunk.Q}_{chunk.R}");
+                loaded.TerrainObject.transform.SetParent(chunkRoot, false);
+                loaded.TerrainObject.AddComponent<MeshFilter>();
+                loaded.TerrainObject.AddComponent<MeshRenderer>();
+
+                if (settings.CreateTerrainColliders)
                 {
-                    collider.sharedMesh = null;
-                    collider.sharedMesh = loaded.TerrainMesh;
+                    loaded.TerrainObject.AddComponent<MeshCollider>();
                 }
             }
 
-            ChunkMeshData waterData = waterMeshBuilder.BuildChunk(playerHex, loaded.WorldHexes);
-            if (loaded.WaterObject != null && loaded.WaterMesh != null)
+            if (loaded.TerrainObject != null)
             {
-                ReplaceMesh(loaded.WaterMesh, waterData, out loaded.WaterMesh);
-                loaded.WaterObject.GetComponent<MeshFilter>().sharedMesh = loaded.WaterMesh;
-                loaded.WaterObject.GetComponent<MeshRenderer>().sharedMaterials =
-                    ChunkMeshFactory.GetMaterials(waterData);
+                if (terrainData.IsEmpty)
+                {
+                    loaded.TerrainObject.SetActive(false);
+                }
+                else
+                {
+                    loaded.TerrainObject.SetActive(true);
+                    ReplaceMesh(ref loaded.TerrainMesh, terrainData);
+                    var filter = loaded.TerrainObject.GetComponent<MeshFilter>();
+                    var renderer = loaded.TerrainObject.GetComponent<MeshRenderer>();
+                    filter.sharedMesh = loaded.TerrainMesh;
+                    renderer.sharedMaterials = ChunkMeshFactory.GetMaterials(terrainData);
+
+                    var collider = loaded.TerrainObject.GetComponent<MeshCollider>();
+                    if (collider != null)
+                    {
+                        collider.sharedMesh = null;
+                        collider.sharedMesh = loaded.TerrainMesh;
+                    }
+                }
+            }
+
+            if (loaded.WaterObject == null && !waterData.IsEmpty)
+            {
+                loaded.WaterObject = new GameObject($"Water_{chunk.Q}_{chunk.R}");
+                loaded.WaterObject.transform.SetParent(chunkRoot, false);
+                loaded.WaterObject.AddComponent<MeshFilter>();
+                loaded.WaterObject.AddComponent<MeshRenderer>();
+            }
+
+            if (loaded.WaterObject != null)
+            {
+                if (waterData.IsEmpty)
+                {
+                    loaded.WaterObject.SetActive(false);
+                }
+                else
+                {
+                    loaded.WaterObject.SetActive(true);
+                    ReplaceMesh(ref loaded.WaterMesh, waterData);
+                    var filter = loaded.WaterObject.GetComponent<MeshFilter>();
+                    var renderer = loaded.WaterObject.GetComponent<MeshRenderer>();
+                    filter.sharedMesh = loaded.WaterMesh;
+                    renderer.sharedMaterials = ChunkMeshFactory.GetMaterials(waterData);
+                }
             }
         }
 
-        static void ReplaceMesh(Mesh oldMesh, ChunkMeshData data, out Mesh newMesh)
+        static void ReplaceMesh(ref Mesh mesh, ChunkMeshData data)
         {
-            if (oldMesh != null)
+            if (mesh != null)
             {
-                Object.Destroy(oldMesh);
+                Destroy(mesh);
             }
 
-            newMesh = ChunkMeshFactory.CreateMesh(data);
+            mesh = ChunkMeshFactory.CreateMesh(data);
         }
 
-        void UnloadChunk(ChunkCoord chunk)
+        void UnloadChunkMeshes(ChunkCoord chunk)
         {
             if (!loadedChunks.TryGetValue(chunk, out LoadedChunk loaded))
             {
@@ -251,28 +354,12 @@ namespace Voxels.Runtime
                 Destroy(loaded.WaterMesh);
             }
 
-            if (loaded.WorldHexes != null)
-            {
-                for (int i = 0; i < loaded.WorldHexes.Count; i++)
-                {
-                    HexCoord hex = loaded.WorldHexes[i];
-                    hexWorld.Columns.RemoveColumn(hex);
-                    hexWorld.BiomeMap.SetBiome(hex, null);
-                }
-            }
-
             loadedChunks.Remove(chunk);
         }
 
-        public void ClearAll()
+        void UnloadChunk(ChunkCoord chunk)
         {
-            var chunks = new List<ChunkCoord>(loadedChunks.Keys);
-            for (int i = 0; i < chunks.Count; i++)
-            {
-                UnloadChunk(chunks[i]);
-            }
-
-            lastPlayerHex = new HexCoord(int.MinValue, int.MinValue);
+            UnloadChunkMeshes(chunk);
         }
     }
 }

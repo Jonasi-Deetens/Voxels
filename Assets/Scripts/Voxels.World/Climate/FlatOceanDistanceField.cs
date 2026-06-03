@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Voxels.Core.Hex;
+using Voxels.World;
 
 namespace Voxels.World.Climate
 {
@@ -10,12 +11,12 @@ namespace Voxels.World.Climate
         public FlatOceanDistanceField(
             IEnumerable<HexCoord> cells,
             int seaLevel,
-            HexColumnStorage columns)
+            HexWorldDataCache cache)
         {
             var queue = new Queue<HexCoord>();
             foreach (HexCoord hex in cells)
             {
-                if (!columns.TryGetColumn(hex, out BlockColumn column))
+                if (!cache.TryGetColumn(hex, out BlockColumn column))
                 {
                     continue;
                 }

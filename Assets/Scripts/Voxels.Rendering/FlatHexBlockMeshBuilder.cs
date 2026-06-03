@@ -32,7 +32,7 @@ namespace Voxels.Rendering
             for (int i = 0; i < worldHexes.Count; i++)
             {
                 HexCoord worldHex = worldHexes[i];
-                if (!world.Columns.TryGetColumn(worldHex, out BlockColumn column))
+                if (!world.TryGetColumn(worldHex, out BlockColumn column))
                 {
                     continue;
                 }
@@ -158,7 +158,7 @@ namespace Voxels.Rendering
             BlockId blockId,
             bool sourceIsOpaque)
         {
-            if (!world.Columns.TryGetColumn(neighborWorld, out BlockColumn neighborColumn))
+            if (!world.TryGetColumn(neighborWorld, out BlockColumn neighborColumn))
             {
                 return false;
             }

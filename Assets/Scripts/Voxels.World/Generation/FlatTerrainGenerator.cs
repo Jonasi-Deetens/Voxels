@@ -48,24 +48,24 @@ namespace Voxels.World.Generation
                 HexCoord hex = cells[i];
                 int surfaceHeight = SampleSurfaceHeight(hex, terrainProfile, seaLevel, minSurfaceLayer);
                 surfaceHeights[hex] = surfaceHeight;
-                world.Columns.GetOrCreateColumn(hex).SetSurfaceHeight(surfaceHeight);
+                world.GetOrCreateColumn(hex).SetSurfaceHeight(surfaceHeight);
             }
 
-            var coastField = new FlatOceanDistanceField(cells, seaLevel, world.Columns);
+            var coastField = new FlatOceanDistanceField(cells, seaLevel, world.DataCache);
             var climateSampler = new FlatClimateSampler(settings);
             var biomeSelector = new BiomeSelector(catalog);
 
             foreach (HexCoord hex in cells)
             {
                 int surfaceHeight = surfaceHeights[hex];
-                BlockColumn column = world.Columns.GetOrCreateColumn(hex);
+                BlockColumn column = world.GetOrCreateColumn(hex);
                 ClimateSample climate = climateSampler.Sample(
                     hex,
                     surfaceHeight,
                     seaLevel,
                     coastField.GetCoastDistance(hex));
                 BiomeDefinition cellBiome = biomeSelector.Select(climate) ?? terrainProfile;
-                world.BiomeMap.SetBiome(hex, cellBiome);
+                world.SetBiome(hex, cellBiome);
                 BiomeBlockIds blocks = BiomeBlockIds.FromBiome(cellBiome);
 
                 int columnBottom = math.max(0, surfaceHeight - settings.MaxDepthBelowSurface);

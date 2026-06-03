@@ -47,7 +47,7 @@ namespace Voxels.Runtime
             }
 
             spawnSettings = settings;
-            spawnHex = FindSpawnHex(world, settings);
+            spawnHex = FlatWorldSpawn.FindSpawnHex(world, settings);
             float surfaceY = world.GetSurfaceWorldY(spawnHex);
             player.position = new Vector3(0f, surfaceY + settings.PlayerHeight * 0.5f, 0f);
             hasSpawned = true;
@@ -56,41 +56,6 @@ namespace Voxels.Runtime
             pitch = lookPitchDown;
             ApplyTransform();
             return true;
-        }
-
-        static HexCoord FindSpawnHex(HexWorld world, WorldSettings settings)
-        {
-            int radius = math.min(12, settings.WorldHexRadius);
-            var candidates = new List<(HexCoord hex, int score)>();
-
-            for (int q = -radius; q <= radius; q++)
-            {
-                for (int r = -radius; r <= radius; r++)
-                {
-                    var hex = new HexCoord(q, r);
-                    if (!world.IsInsideWorld(hex) || !world.Columns.TryGetColumn(hex, out BlockColumn column))
-                    {
-                        continue;
-                    }
-
-                    if (column.SurfaceHeight < settings.SeaLevelLayer)
-                    {
-                        continue;
-                    }
-
-                    BiomeDefinition biome = world.BiomeMap.GetBiome(hex);
-                    int score = biome != null ? biome.SpawnPreference : 0;
-                    candidates.Add((hex, score));
-                }
-            }
-
-            if (candidates.Count == 0)
-            {
-                return HexCoord.Zero;
-            }
-
-            candidates.Sort((a, b) => b.score.CompareTo(a.score));
-            return candidates[0].hex;
         }
 
         void HandleLook()

@@ -32,3 +32,7 @@ MonoBehaviour:
   buildFrameBudgetMs: 16
   createTerrainColliders: 1
   floatingOriginRecenterDistance: 1000
+  boundaryWallHeight: 96
+  showWorldBoundary: 1
+  chunkMeshPadding: 1
+  columnCacheMaxCells: 8192

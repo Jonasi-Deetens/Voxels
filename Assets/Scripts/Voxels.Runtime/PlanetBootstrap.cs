@@ -18,6 +18,8 @@ namespace Voxels.Runtime
         HexWorld hexWorld;
         WorldScroller worldScroller;
         HexChunkManager chunkManager;
+        WorldBoundary worldBoundary;
+        WorldDebugOverlay debugOverlay;
         FlatPlayerController playerController;
         FlatSpawnCamera spawnCamera;
         CelestialSystem celestialSystem;
@@ -62,10 +64,10 @@ namespace Voxels.Runtime
             overlay.SetVisible(true);
             overlay.Report(0f, "Preparing world…");
 
-            FlatSpawnCamera camera = FindAnyObjectByType<FlatSpawnCamera>();
-            if (camera != null)
+            spawnCamera = FindAnyObjectByType<FlatSpawnCamera>();
+            if (spawnCamera != null)
             {
-                camera.enabled = false;
+                spawnCamera.enabled = false;
             }
 
             ClearWorld();
@@ -79,61 +81,44 @@ namespace Voxels.Runtime
 
             Transform chunksParent = chunkRoot != null ? chunkRoot : worldRootTransform;
 
-            worldScroller = gameObject.GetComponent<WorldScroller>();
-            if (worldScroller == null)
-            {
-                worldScroller = gameObject.AddComponent<WorldScroller>();
-            }
-
-            chunkManager = gameObject.GetComponent<HexChunkManager>();
-            if (chunkManager == null)
-            {
-                chunkManager = gameObject.AddComponent<HexChunkManager>();
-            }
+            worldScroller = GetOrAdd<WorldScroller>();
+            chunkManager = GetOrAdd<HexChunkManager>();
+            worldBoundary = GetOrAdd<WorldBoundary>();
+            debugOverlay = GetOrAdd<WorldDebugOverlay>();
 
             chunkManager.Initialize(hexWorld, settings, worldScroller, chunksParent);
-            worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), HexCoord.Zero);
+            worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), HexCoord.Zero, hexWorld);
 
-            overlay.Report(0.2f, "Loading terrain…");
+            overlay.Report(0.25f, "Finding spawn…");
             chunkManager.RefreshAroundPlayer();
-            while (chunkManager == null || !HasLoadedChunks())
-            {
-                yield return null;
-            }
-
-            yield return new WaitForSeconds(0.1f);
-
-            HexCoord spawnHex = HexCoord.Zero;
-            if (camera != null)
-            {
-                camera.enabled = true;
-            }
-
-            SetupPlayer(camera, ref spawnHex);
-            worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), spawnHex);
-            chunkManager.ClearAll();
-            chunkManager.RefreshAroundPlayer();
-
             while (!HasLoadedChunks())
             {
                 yield return null;
             }
 
-            SetupCelestial(ResolvePlayerTransform());
-            if (playerController != null)
+            HexCoord spawnHex = FlatWorldSpawn.FindSpawnHex(hexWorld, settings);
+            worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), spawnHex, hexWorld);
+
+            chunkManager.ClearMeshesOnly();
+            chunkManager.RefreshAroundPlayer();
+            while (!HasLoadedChunks())
             {
-                playerController.enabled = true;
-                playerController.SnapToGround();
+                yield return null;
             }
 
-            if (camera != null)
+            SetupPlayer(spawnCamera);
+            worldBoundary.Initialize(settings, worldScroller, worldRootTransform);
+            SetupCelestial(ResolvePlayerTransform());
+            debugOverlay.Initialize(worldScroller, chunkManager, celestialSystem);
+
+            if (spawnCamera != null)
             {
-                camera.enabled = true;
+                spawnCamera.enabled = true;
             }
 
             stopwatch.Stop();
             UnityEngine.Debug.Log(
-                $"World built (seed={settings.Seed}, hexRadius={settings.WorldHexRadius}): " +
+                $"World built (seed={settings.Seed}, hexRadius={settings.WorldHexRadius}, spawn={spawnHex}): " +
                 $"buildTime={stopwatch.Elapsed.TotalSeconds:F1}s.");
 
             overlay.Report(1f, "Ready.");
@@ -142,29 +127,35 @@ namespace Voxels.Runtime
             buildComplete = true;
         }
 
-        bool HasLoadedChunks()
+        T GetOrAdd<T>() where T : Component
         {
-            return chunkRoot != null
-                ? chunkRoot.childCount > 0
-                : worldRootTransform != null && worldRootTransform.childCount > 0;
+            T component = GetComponent<T>();
+            if (component == null)
+            {
+                component = gameObject.AddComponent<T>();
+            }
+
+            return component;
         }
 
-        void SetupPlayer(FlatSpawnCamera camera, ref HexCoord spawnHex)
+        bool HasLoadedChunks()
+        {
+            return chunkManager != null && chunkManager.LoadedChunkCount > 0;
+        }
+
+        void SetupPlayer(FlatSpawnCamera camera)
         {
             Transform player = ResolvePlayerTransform();
             if (player == null)
             {
-                var playerObject = new GameObject("Player");
-                player = playerObject.transform;
+                player = new GameObject("Player").transform;
             }
 
             player.SetParent(null, true);
-            player.position = Vector3.zero;
 
-            var controller = player.GetComponent<CharacterController>();
-            if (controller == null)
+            if (player.GetComponent<CharacterController>() == null)
             {
-                controller = player.gameObject.AddComponent<CharacterController>();
+                player.gameObject.AddComponent<CharacterController>();
             }
 
             playerController = player.GetComponent<FlatPlayerController>();
@@ -173,26 +164,25 @@ namespace Voxels.Runtime
                 playerController = player.gameObject.AddComponent<FlatPlayerController>();
             }
 
-            playerController.enabled = false;
             playerController.Initialize(settings, worldScroller, chunkManager, camera != null ? camera.transform : null);
 
             if (camera != null)
             {
                 camera.TrySpawn(hexWorld, settings, player);
-                spawnHex = camera.SpawnHex;
+            }
+            else
+            {
+                float y = hexWorld.GetSurfaceWorldY(worldScroller.PlayerWorldHex);
+                player.position = new Vector3(0f, y + settings.PlayerHeight * 0.5f, 0f);
             }
 
-            worldScroller.Initialize(settings, worldRootTransform, player, spawnHex);
+            playerController.SnapToGround();
+            playerController.enabled = true;
         }
 
         void SetupCelestial(Transform player)
         {
-            celestialSystem = GetComponent<CelestialSystem>();
-            if (celestialSystem == null)
-            {
-                celestialSystem = gameObject.AddComponent<CelestialSystem>();
-            }
-
+            celestialSystem = GetOrAdd<CelestialSystem>();
             celestialSystem.Initialize(settings, directionalLight, player);
         }
 
@@ -236,8 +226,7 @@ namespace Voxels.Runtime
 
             HexCoord before = worldScroller.PlayerWorldHex;
             chunkManager.RefreshAroundPlayer();
-            HexCoord after = worldScroller.PlayerWorldHex;
-            if (before != after)
+            if (before != worldScroller.PlayerWorldHex)
             {
                 chunkManager.RefreshAroundPlayer(forceRebuildMeshes: true);
             }

@@ -14,15 +14,23 @@ namespace Voxels.Runtime
         [SerializeField] Transform player;
 
         WorldSettings settings;
+        HexWorld hexWorld;
         HexCoord playerWorldHex;
         float3 accumulatedWorldOffset;
 
         public HexCoord PlayerWorldHex => playerWorldHex;
         public Transform WorldRoot => worldRoot;
+        public HexWorld HexWorld => hexWorld;
 
-        public void Initialize(WorldSettings worldSettings, Transform root, Transform playerTransform, HexCoord spawnHex)
+        public void Initialize(
+            WorldSettings worldSettings,
+            Transform root,
+            Transform playerTransform,
+            HexCoord spawnHex,
+            HexWorld world = null)
         {
             settings = worldSettings;
+            hexWorld = world;
             worldRoot = root;
             player = playerTransform;
             playerWorldHex = spawnHex;
@@ -31,6 +39,12 @@ namespace Voxels.Runtime
             {
                 worldRoot.position = Vector3.zero;
             }
+        }
+
+        public void SetWorldHex(HexCoord hex, float3 worldOffset)
+        {
+            playerWorldHex = hex;
+            accumulatedWorldOffset = worldOffset;
         }
 
         public void AddWorldOffset(float3 delta)
