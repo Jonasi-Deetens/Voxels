@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using Voxels.Core.Hex;
 using Voxels.Rendering;
@@ -104,6 +105,26 @@ namespace Voxels.Runtime
             hexWorld?.DataCache.Clear();
             protectedHexes.Clear();
             lastPlayerHex = new HexCoord(int.MinValue, int.MinValue);
+        }
+
+
+        public void RebuildChunksForWorldHex(HexCoord worldHex, HexCoord playerHex)
+        {
+            int chunkSize = settings.ChunkSizeHex;
+            ChunkCoord center = ChunkCoord.FromHex(worldHex, chunkSize);
+            for (int dq = -1; dq <= 1; dq++)
+            {
+                for (int dr = -1; dr <= 1; dr++)
+                {
+                    var chunk = new ChunkCoord(center.Q + dq, center.R + dr);
+                    if (loadedChunks.ContainsKey(chunk))
+                    {
+                        EnqueueMeshBuild(chunk, playerHex);
+                    }
+                }
+            }
+
+            EnsureMeshQueueRunning();
         }
 
         public void RebuildAllMeshes(HexCoord playerHex)
@@ -232,7 +253,7 @@ namespace Voxels.Runtime
             while (meshQueue.Count > 0)
             {
                 MeshBuildRequest request = meshQueue.Dequeue();
-                BuildChunkMeshes(request.Chunk, request.PlayerHex);
+                yield return BuildChunkMeshesAsync(request.Chunk, request.PlayerHex);
 
                 if (frameBudget.ShouldYield())
                 {
@@ -244,6 +265,40 @@ namespace Voxels.Runtime
             meshQueueRoutine = null;
         }
 
+        IEnumerator BuildChunkMeshesAsync(ChunkCoord chunk, HexCoord playerHex)
+        {
+            if (!loadedChunks.TryGetValue(chunk, out LoadedChunk loaded) || loaded.CoreHexes == null)
+            {
+                yield break;
+            }
+
+            ChunkMeshData terrainData;
+            ChunkMeshData waterData;
+
+            if (settings.UseBackgroundMeshBuild)
+            {
+                Task<ChunkMeshData> terrainTask = Task.Run(
+                    () => meshBuilder.BuildChunk(playerHex, loaded.CoreHexes));
+                Task<ChunkMeshData> waterTask = Task.Run(
+                    () => waterMeshBuilder.BuildChunk(playerHex, loaded.CoreHexes));
+
+                while (!terrainTask.IsCompleted || !waterTask.IsCompleted)
+                {
+                    yield return null;
+                }
+
+                terrainData = terrainTask.Result;
+                waterData = waterTask.Result;
+            }
+            else
+            {
+                terrainData = meshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
+                waterData = waterMeshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
+            }
+
+            ApplyChunkMeshData(chunk, loaded, terrainData, waterData);
+        }
+
         void BuildChunkMeshes(ChunkCoord chunk, HexCoord playerHex)
         {
             if (!loadedChunks.TryGetValue(chunk, out LoadedChunk loaded) || loaded.CoreHexes == null)
@@ -253,6 +308,15 @@ namespace Voxels.Runtime
 
             ChunkMeshData terrainData = meshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
             ChunkMeshData waterData = waterMeshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
+            ApplyChunkMeshData(chunk, loaded, terrainData, waterData);
+        }
+
+        void ApplyChunkMeshData(
+            ChunkCoord chunk,
+            LoadedChunk loaded,
+            ChunkMeshData terrainData,
+            ChunkMeshData waterData)
+        {
 
             if (loaded.TerrainObject == null && !terrainData.IsEmpty)
             {

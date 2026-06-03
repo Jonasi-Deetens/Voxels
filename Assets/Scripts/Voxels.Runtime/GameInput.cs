@@ -25,7 +25,7 @@ namespace Voxels.Runtime
 
             return ReadKeyboardAxes();
 #else
-            return Vector2.zero;
+            return new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 #endif
         }
 
@@ -41,7 +41,7 @@ namespace Voxels.Runtime
             Keyboard keyboard = GetKeyboard();
             return keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
 #else
-            return false;
+            return Input.GetKeyDown(KeyCode.Space);
 #endif
         }
 
@@ -57,7 +57,37 @@ namespace Voxels.Runtime
             Keyboard keyboard = GetKeyboard();
             return keyboard != null && keyboard.leftShiftKey.isPressed;
 #else
-            return false;
+            return Input.GetKey(KeyCode.LeftShift);
+#endif
+        }
+
+        public static bool WasPrimaryPressedThisFrame()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Mouse mouse = Mouse.current;
+            return mouse != null && mouse.leftButton.wasPressedThisFrame;
+#else
+            return Input.GetMouseButtonDown(0);
+#endif
+        }
+
+        public static bool WasSecondaryPressedThisFrame()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Mouse mouse = Mouse.current;
+            return mouse != null && mouse.rightButton.wasPressedThisFrame;
+#else
+            return Input.GetMouseButtonDown(1);
+#endif
+        }
+
+        public static bool WasDebugTogglePressedThisFrame()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard keyboard = GetKeyboard();
+            return keyboard != null && keyboard.f3Key.wasPressedThisFrame;
+#else
+            return Input.GetKeyDown(KeyCode.F3);
 #endif
         }
 

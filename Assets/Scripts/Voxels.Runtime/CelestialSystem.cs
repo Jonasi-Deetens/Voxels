@@ -26,6 +26,8 @@ namespace Voxels.Runtime
         Color defaultAmbient;
 
         public float TimeOfDay => timeOfDay;
+        public float SunHeight { get; private set; }
+        public Vector3 SunDirectionWorld { get; private set; }
 
         public void Initialize(WorldSettings worldSettings, Light directionalLight, Transform player)
         {
@@ -94,6 +96,8 @@ namespace Voxels.Runtime
             }
 
             float sunHeight = math.saturate(sunDirection.y * 0.5f + 0.5f);
+            SunHeight = sunHeight;
+            SunDirectionWorld = (Vector3)sunDirection;
             float moonHeight = math.saturate(moonDirection.y * 0.5f + 0.5f);
 
             if (sunLight != null)

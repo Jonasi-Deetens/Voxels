@@ -42,6 +42,7 @@ namespace Voxels.World
         [SerializeField] int chunkMeshPadding = 1;
         [SerializeField] bool showWorldBoundary = true;
         [SerializeField] float boundaryWallHeight = 96f;
+        [SerializeField] bool useBackgroundMeshBuild = true;
 
         public int Seed => seed;
         public BiomeCatalog BiomeCatalog => biomeCatalog;
@@ -68,6 +69,7 @@ namespace Voxels.World
         public int ChunkMeshPadding => chunkMeshPadding;
         public bool ShowWorldBoundary => showWorldBoundary;
         public float BoundaryWallHeight => boundaryWallHeight;
+        public bool UseBackgroundMeshBuild => useBackgroundMeshBuild;
 
         public float ResolveOrbitRadius()
         {

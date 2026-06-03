@@ -33,6 +33,7 @@ MonoBehaviour:
   createTerrainColliders: 1
   floatingOriginRecenterDistance: 1000
   boundaryWallHeight: 96
+  useBackgroundMeshBuild: 1
   showWorldBoundary: 1
   chunkMeshPadding: 1
   columnCacheMaxCells: 8192

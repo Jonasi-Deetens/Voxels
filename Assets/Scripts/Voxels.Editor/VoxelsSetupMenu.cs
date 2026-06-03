@@ -157,6 +157,7 @@ namespace Voxels.EditorTools
             worldObject.FindProperty("chunkMeshPadding").intValue = 1;
             worldObject.FindProperty("showWorldBoundary").boolValue = true;
             worldObject.FindProperty("boundaryWallHeight").floatValue = 96f;
+            worldObject.FindProperty("useBackgroundMeshBuild").boolValue = true;
             worldObject.ApplyModifiedPropertiesWithoutUndo();
 
             AssetDatabase.SaveAssets();

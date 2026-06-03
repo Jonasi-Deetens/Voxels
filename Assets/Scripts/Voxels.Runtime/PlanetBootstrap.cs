@@ -20,6 +20,8 @@ namespace Voxels.Runtime
         HexChunkManager chunkManager;
         WorldBoundary worldBoundary;
         WorldDebugOverlay debugOverlay;
+        HexBlockInteractor blockInteractor;
+        ProceduralSkyController skyController;
         FlatPlayerController playerController;
         FlatSpawnCamera spawnCamera;
         CelestialSystem celestialSystem;
@@ -85,6 +87,8 @@ namespace Voxels.Runtime
             chunkManager = GetOrAdd<HexChunkManager>();
             worldBoundary = GetOrAdd<WorldBoundary>();
             debugOverlay = GetOrAdd<WorldDebugOverlay>();
+            blockInteractor = GetOrAdd<HexBlockInteractor>();
+            skyController = GetOrAdd<ProceduralSkyController>();
 
             chunkManager.Initialize(hexWorld, settings, worldScroller, chunksParent);
             worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), HexCoord.Zero, hexWorld);
@@ -109,7 +113,9 @@ namespace Voxels.Runtime
             SetupPlayer(spawnCamera);
             worldBoundary.Initialize(settings, worldScroller, worldRootTransform);
             SetupCelestial(ResolvePlayerTransform());
-            debugOverlay.Initialize(worldScroller, chunkManager, celestialSystem);
+            skyController.Initialize(celestialSystem);
+            blockInteractor.Initialize(hexWorld, settings, worldScroller, chunkManager, spawnCamera != null ? spawnCamera.transform : null);
+            debugOverlay.Initialize(worldScroller, chunkManager, celestialSystem, blockInteractor);
 
             if (spawnCamera != null)
             {
