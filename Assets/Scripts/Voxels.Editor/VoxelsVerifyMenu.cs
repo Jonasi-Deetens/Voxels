@@ -1,7 +1,7 @@
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using Voxels.Core.Blocks;
+using Voxels.Core.Hex;
 using Voxels.Rendering;
 using Voxels.World;
 using Voxels.World.Generation;
@@ -13,7 +13,7 @@ namespace Voxels.EditorTools
         [MenuItem("Voxels/Verify Build Pipeline")]
         public static void VerifyBuildPipeline()
         {
-            PlanetSettings settings = AssetDatabase.LoadAssetAtPath<PlanetSettings>("Assets/Data/Planet_Default.asset");
+            WorldSettings settings = AssetDatabase.LoadAssetAtPath<WorldSettings>("Assets/Data/Planet_Default.asset");
             if (settings == null)
             {
                 Debug.LogError("Missing Assets/Data/Planet_Default.asset. Run Voxels/Setup Default Content first.");
@@ -34,54 +34,26 @@ namespace Voxels.EditorTools
                 .ToArray();
 
             BlockRegistry registry = BlockRegistryBuilder.Build(settings, blockList);
-            var world = new PlanetWorld(settings, registry);
-            int pentagons = 0;
-            int hexagons = 0;
+            var world = new HexWorld(settings, registry);
+            var generator = new FlatTerrainGenerator(settings);
+            generator.GenerateChunk(world, new ChunkCoord(0, 0));
 
-            for (int i = 0; i < world.Grid.CellCount; i++)
+            int landColumns = 0;
+            foreach (var entry in world.Columns.Columns)
             {
-                ref readonly var cell = ref world.Grid.GetCell(i);
-                if (cell.IsPentagon)
+                if (entry.Value.SurfaceHeight >= settings.SeaLevelLayer)
                 {
-                    pentagons++;
-                }
-                else
-                {
-                    hexagons++;
+                    landColumns++;
                 }
             }
 
-            world.Generate(new PlanetLayerGenerator(settings));
-
-            int waterColumns = 0;
-            int caveColumns = 0;
-            int biomeTypes = world.BiomeMap.Biomes.Count;
-            BlockId waterId = settings.BiomeCatalog.OceanBiome.WaterBlock.BlockId;
-
-            for (int i = 0; i < world.Columns.CellCount; i++)
-            {
-                BlockColumn column = world.Columns.GetColumn(i);
-                if (column.GetBlock(settings.SeaLevelLayer) == waterId)
-                {
-                    waterColumns++;
-                }
-
-                if (column.IsAir(settings.CrustTopLayer + 2))
-                {
-                    caveColumns++;
-                }
-            }
-
-            var meshBuilder = new HexBlockMeshBuilder(world);
-            var firstChunk = PlanetChunkUtility.BuildChunkCellGroups(world.Grid.CellCount, settings.CellsPerChunk)[0];
-            ChunkMeshData meshData = meshBuilder.BuildChunk(firstChunk);
-            ChunkMeshData waterMesh = new WaterMeshBuilder(world).Build();
+            var hexes = HexChunkUtility.CollectChunkHexes(world, new ChunkCoord(0, 0), settings.ChunkSizeHex);
+            var meshBuilder = new FlatHexBlockMeshBuilder(world);
+            ChunkMeshData meshData = meshBuilder.BuildChunk(HexCoord.Zero, hexes);
 
             Debug.Log(
-                $"Voxels verification passed. Cells={world.Grid.CellCount}, subdiv={settings.ResolveSubdivisionLevel()}, " +
-                $"hex={hexagons}, pent={pentagons}, biomes={biomeTypes}, shellRadius={world.ShellRadius:F2}, " +
-                $"seaLevel={settings.SeaLevelLayer}, waterColumns={waterColumns}, caveColumns={caveColumns}, " +
-                $"firstChunkVertices={meshData.Vertices.Count}, waterVertices={waterMesh.Vertices.Count}.");
+                $"Verify OK: chunk hexes={hexes.Count}, landColumns={landColumns}, " +
+                $"meshVertices={meshData.Vertices.Count}, biomeTypes loaded.");
         }
     }
 }

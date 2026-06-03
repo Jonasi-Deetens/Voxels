@@ -131,32 +131,32 @@ namespace Voxels.EditorTools
 
             catalogObject.ApplyModifiedPropertiesWithoutUndo();
 
-            PlanetSettings planet = CreateOrLoad<PlanetSettings>("Assets/Data/Planet_Default.asset");
+            WorldSettings planet = CreateOrLoad<WorldSettings>("Assets/Data/World_Default.asset");
             SerializedObject planetObject = new SerializedObject(planet);
-            planetObject.FindProperty("subdivisionLevel").intValue = 6;
+            planetObject.FindProperty("worldHexRadius").intValue = 80;
             planetObject.FindProperty("seed").intValue = 42;
             planetObject.FindProperty("biomeCatalog").objectReferenceValue = catalog;
             planetObject.FindProperty("biome").objectReferenceValue = grassland;
-            planetObject.FindProperty("cellsPerChunk").intValue = 2048;
-            planetObject.FindProperty("planetRadiusScale").floatValue = 4f;
             planetObject.FindProperty("blockSize").floatValue = 1f;
+            planetObject.FindProperty("maxDepthBelowSurface").intValue = 80;
+            planetObject.FindProperty("maxHeightAboveSurface").intValue = 30;
+            planetObject.FindProperty("seaLevelLayer").intValue = 72;
+            planetObject.FindProperty("chunkSizeHex").intValue = 16;
+            planetObject.FindProperty("viewRadiusChunks").intValue = 3;
             planetObject.FindProperty("playerEyeHeight").floatValue = 1.7f;
             planetObject.FindProperty("playerHeight").floatValue = 2f;
-            planetObject.FindProperty("coreLayerCount").intValue = 8;
-            planetObject.FindProperty("mantleLayerCount").intValue = 96;
-            planetObject.FindProperty("crustLayerCount").intValue = 56;
-            planetObject.FindProperty("seaLevelOffsetFromCrust").intValue = 12;
             planetObject.FindProperty("dayLengthSeconds").floatValue = 900f;
-            planetObject.FindProperty("axisTiltDegrees").floatValue = 23.5f;
-            planetObject.FindProperty("sunDistanceMultiplier").floatValue = 50f;
-            planetObject.FindProperty("sunAngularSize").floatValue = 1.2f;
+            planetObject.FindProperty("orbitRadiusMultiplier").floatValue = 4f;
+            planetObject.FindProperty("sunAngularSize").floatValue = 2.4f;
+            planetObject.FindProperty("moonAngularSize").floatValue = 1.08f;
+            planetObject.FindProperty("moonOrbitPhaseOffset").floatValue = 0.45f;
             planetObject.FindProperty("buildFrameBudgetMs").floatValue = 16f;
             planetObject.FindProperty("createTerrainColliders").boolValue = true;
             planetObject.ApplyModifiedPropertiesWithoutUndo();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("Voxels default content created: 13 biomes, BiomeCatalog, scale=4, cellsPerChunk=2048.");
+            Debug.Log("Voxels default content created: 13 biomes, BiomeCatalog, hexRadius=80, streaming chunks.");
         }
 
         [MenuItem("Voxels/Setup Sample Scene")]
@@ -165,12 +165,12 @@ namespace Voxels.EditorTools
             SetupDefaultContent();
 
             Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
-            SetupPlanetInScene(scene);
+            SetupWorldInScene(scene);
             EditorSceneManager.SaveScene(scene);
-            Debug.Log("Sample scene configured with planet, loading overlay, and surface camera.");
+            Debug.Log("Sample scene configured with flat hex world, loading overlay, and surface camera.");
         }
 
-        static void SetupPlanetInScene(Scene scene)
+        static void SetupWorldInScene(Scene scene)
         {
             PlanetBootstrap bootstrap = Object.FindFirstObjectByType<PlanetBootstrap>();
             GameObject planetObject;
@@ -193,7 +193,7 @@ namespace Voxels.EditorTools
                 chunkRoot = chunkRootObject.transform;
             }
 
-            PlanetSettings settings = AssetDatabase.LoadAssetAtPath<PlanetSettings>("Assets/Data/Planet_Default.asset");
+            WorldSettings settings = AssetDatabase.LoadAssetAtPath<WorldSettings>("Assets/Data/World_Default.asset");
             BlockDefinition[] blocks =
             {
                 AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Grass.asset"),
@@ -236,25 +236,16 @@ namespace Voxels.EditorTools
             Camera camera = Camera.main;
             if (camera != null)
             {
-                OrbitCamera orbit = camera.GetComponent<OrbitCamera>();
-                if (orbit != null)
+                FlatSpawnCamera flatCamera = camera.GetComponent<FlatSpawnCamera>();
+                if (flatCamera == null)
                 {
-                    orbit.enabled = false;
+                    flatCamera = camera.gameObject.AddComponent<FlatSpawnCamera>();
                 }
 
-                SurfaceSpawnCamera surface = camera.GetComponent<SurfaceSpawnCamera>();
-                if (surface == null)
-                {
-                    surface = camera.gameObject.AddComponent<SurfaceSpawnCamera>();
-                }
-
-                SerializedObject surfaceObject = new SerializedObject(surface);
-                surfaceObject.FindProperty("spawnOnStart").boolValue = false;
+                SerializedObject surfaceObject = new SerializedObject(flatCamera);
                 surfaceObject.FindProperty("lookPitchDown").floatValue = 8f;
-                surfaceObject.FindProperty("minEyeHeight").floatValue = 1.5f;
-                surfaceObject.FindProperty("maxEyeHeight").floatValue = 3.5f;
                 surfaceObject.ApplyModifiedPropertiesWithoutUndo();
-                surface.enabled = true;
+                flatCamera.enabled = true;
             }
 
             EditorSceneManager.MarkSceneDirty(scene);

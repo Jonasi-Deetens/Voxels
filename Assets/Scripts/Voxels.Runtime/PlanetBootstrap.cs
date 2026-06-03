@@ -1,324 +1,246 @@
 using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
-using Voxels.Rendering;
+using Voxels.Core.Hex;
 using Voxels.World;
-using Voxels.World.Generation;
 
 namespace Voxels.Runtime
 {
     [DefaultExecutionOrder(-200)]
     public sealed class PlanetBootstrap : MonoBehaviour
     {
-        [SerializeField] PlanetSettings settings;
+        [SerializeField] WorldSettings settings;
         [SerializeField] BlockDefinition[] blockDefinitions;
         [SerializeField] Transform chunkRoot;
         [SerializeField] Light directionalLight;
-        [SerializeField] Transform playerAnchorRoot;
+        [SerializeField] Transform playerRoot;
 
-        PlanetWorld planetWorld;
-        PlayerAnchor playerAnchor;
-        SurfacePlayerController playerController;
+        HexWorld hexWorld;
+        WorldScroller worldScroller;
+        HexChunkManager chunkManager;
+        FlatPlayerController playerController;
+        FlatSpawnCamera spawnCamera;
         CelestialSystem celestialSystem;
+        Transform worldRootTransform;
         bool buildComplete;
 
-        public PlanetWorld PlanetWorld => planetWorld;
-        public PlayerAnchor PlayerAnchor => playerAnchor;
+        public HexWorld HexWorld => hexWorld;
         public bool BuildComplete => buildComplete;
 
         void Awake()
         {
-            StartCoroutine(BuildPlanetAsync());
+            StartCoroutine(BuildWorldAsync());
         }
 
-        public void RegeneratePlanet()
+        public void RegenerateWorld()
         {
             StopAllCoroutines();
             if (Application.isPlaying)
             {
-                StartCoroutine(BuildPlanetAsync());
-                return;
-            }
-
-            IEnumerator build = BuildPlanetAsync();
-            while (build.MoveNext())
-            {
+                StartCoroutine(BuildWorldAsync());
             }
         }
 
-        public IEnumerator BuildPlanetAsync()
+        IEnumerator BuildWorldAsync()
         {
             buildComplete = false;
             var stopwatch = Stopwatch.StartNew();
 
             if (settings == null)
             {
-                UnityEngine.Debug.LogError("PlanetBootstrap requires PlanetSettings.");
+                UnityEngine.Debug.LogError("PlanetBootstrap requires WorldSettings.");
                 yield break;
             }
 
             if (settings.BiomeCatalog == null && settings.Biome == null)
             {
-                UnityEngine.Debug.LogError("PlanetSettings needs BiomeCatalog. Run Voxels/Setup Default Content.");
+                UnityEngine.Debug.LogError("WorldSettings needs BiomeCatalog. Run Voxels/Setup Default Content.");
                 yield break;
             }
 
             PlanetBuildOverlay overlay = PlanetBuildOverlay.Ensure();
             overlay.SetVisible(true);
-            overlay.Report(0f, "Preparing planet…");
+            overlay.Report(0f, "Preparing world…");
 
-            SurfaceSpawnCamera surfaceCamera = FindAnyObjectByType<SurfaceSpawnCamera>();
-            if (surfaceCamera != null)
+            FlatSpawnCamera camera = FindAnyObjectByType<FlatSpawnCamera>();
+            if (camera != null)
             {
-                surfaceCamera.enabled = false;
+                camera.enabled = false;
             }
 
-            if (playerController != null)
-            {
-                playerController.enabled = false;
-            }
-
-            ClearChunks();
-            transform.localPosition = Vector3.zero;
-            transform.localRotation = Quaternion.identity;
+            ClearWorld();
 
             BlockRegistry registry = BlockRegistryBuilder.Build(settings, blockDefinitions);
-            overlay.Report(0.01f, "Building planet grid…");
-            yield return null;
+            hexWorld = new HexWorld(settings, registry);
 
-            planetWorld = new PlanetWorld(settings, registry);
+            var worldRootObject = new GameObject("WorldRoot");
+            worldRootTransform = worldRootObject.transform;
+            worldRootTransform.SetParent(transform, false);
 
-            var generator = new PlanetLayerGenerator(settings);
-            yield return generator.GenerateBatched(
-                planetWorld,
-                PlanetLayerGenerator.DefaultBatchSize,
-                overlay.Report);
+            Transform chunksParent = chunkRoot != null ? chunkRoot : worldRootTransform;
 
-            Transform root = chunkRoot != null ? chunkRoot : transform;
-            var meshBuilder = new HexBlockMeshBuilder(planetWorld);
-            List<int>[] chunkGroups = PlanetChunkUtility.BuildChunkCellGroups(
-                planetWorld.Grid.CellCount,
-                settings.CellsPerChunk);
-
-            int chunkCount = 0;
-            int waterVertices = 0;
-            var frameBudget = new BuildFrameBudget(settings.BuildFrameBudgetMs);
-            var builtChunks = new List<(GameObject chunkObject, Mesh mesh)>(chunkGroups.Length);
-
-            for (int i = 0; i < chunkGroups.Length; i++)
+            worldScroller = gameObject.GetComponent<WorldScroller>();
+            if (worldScroller == null)
             {
-                ChunkMeshData meshData = meshBuilder.BuildChunk(chunkGroups[i]);
-                if (!meshData.IsEmpty)
-                {
-                    chunkCount++;
-                    var chunkObject = new GameObject($"Chunk_{i}");
-                    chunkObject.transform.SetParent(root, false);
-
-                    var meshFilter = chunkObject.AddComponent<MeshFilter>();
-                    var meshRenderer = chunkObject.AddComponent<MeshRenderer>();
-
-                    Mesh mesh = ChunkMeshFactory.CreateMesh(meshData);
-                    meshFilter.sharedMesh = mesh;
-                    meshRenderer.sharedMaterials = ChunkMeshFactory.GetMaterials(meshData);
-                    builtChunks.Add((chunkObject, mesh));
-                }
-
-                float meshProgress = 0.92f + 0.04f * (i + 1) / chunkGroups.Length;
-                overlay.Report(meshProgress, $"Meshing chunk {i + 1}/{chunkGroups.Length}…");
-
-                if (frameBudget.ShouldYield())
-                {
-                    yield return null;
-                    frameBudget.MarkYield();
-                }
+                worldScroller = gameObject.AddComponent<WorldScroller>();
             }
 
-            if (settings.CreateTerrainColliders)
+            chunkManager = gameObject.GetComponent<HexChunkManager>();
+            if (chunkManager == null)
             {
-                overlay.Report(0.96f, "Building collision…");
+                chunkManager = gameObject.AddComponent<HexChunkManager>();
+            }
+
+            chunkManager.Initialize(hexWorld, settings, worldScroller, chunksParent);
+            worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), HexCoord.Zero);
+
+            overlay.Report(0.2f, "Loading terrain…");
+            chunkManager.RefreshAroundPlayer();
+            while (chunkManager == null || !HasLoadedChunks())
+            {
                 yield return null;
-
-                for (int i = 0; i < builtChunks.Count; i++)
-                {
-                    (GameObject chunkObject, Mesh mesh) = builtChunks[i];
-                    AttachMeshCollider(chunkObject, mesh);
-
-                    float colliderProgress = 0.96f + 0.02f * (i + 1) / builtChunks.Count;
-                    overlay.Report(colliderProgress, $"Collision {i + 1}/{builtChunks.Count}…");
-
-                    if (frameBudget.ShouldYield())
-                    {
-                        yield return null;
-                        frameBudget.MarkYield();
-                    }
-                }
             }
 
-            overlay.Report(0.98f, "Building water…");
-            yield return null;
+            yield return new WaitForSeconds(0.1f);
 
-            ChunkMeshData waterMeshData = new WaterMeshBuilder(planetWorld).Build();
-            if (!waterMeshData.IsEmpty)
+            HexCoord spawnHex = HexCoord.Zero;
+            if (camera != null)
             {
-                waterVertices = waterMeshData.Vertices.Count;
-                var waterObject = new GameObject("Water");
-                waterObject.transform.SetParent(root, false);
-
-                var waterFilter = waterObject.AddComponent<MeshFilter>();
-                var waterRenderer = waterObject.AddComponent<MeshRenderer>();
-
-                Mesh waterMesh = ChunkMeshFactory.CreateMesh(waterMeshData);
-                waterFilter.sharedMesh = waterMesh;
-                waterRenderer.sharedMaterials = ChunkMeshFactory.GetMaterials(waterMeshData);
+                camera.enabled = true;
             }
 
-            SetupPlayerAnchor(surfaceCamera);
-            SetupCelestialSystem();
+            SetupPlayer(camera, ref spawnHex);
+            worldScroller.Initialize(settings, worldRootTransform, ResolvePlayerTransform(), spawnHex);
+            chunkManager.ClearAll();
+            chunkManager.RefreshAroundPlayer();
+
+            while (!HasLoadedChunks())
+            {
+                yield return null;
+            }
+
+            SetupCelestial(ResolvePlayerTransform());
+            if (playerController != null)
+            {
+                playerController.enabled = true;
+                playerController.SnapToGround();
+            }
+
+            if (camera != null)
+            {
+                camera.enabled = true;
+            }
 
             stopwatch.Stop();
             UnityEngine.Debug.Log(
-                $"Planet built (seed={settings.Seed}, subdiv={settings.ResolveSubdivisionLevel()}): " +
-                $"{planetWorld.Grid.CellCount} cells, {chunkCount}/{chunkGroups.Length} terrain chunks, " +
-                $"waterVertices={waterVertices}, shellRadius={planetWorld.ShellRadius:F1}, " +
+                $"World built (seed={settings.Seed}, hexRadius={settings.WorldHexRadius}): " +
                 $"buildTime={stopwatch.Elapsed.TotalSeconds:F1}s.");
-
-            if (chunkCount == 0)
-            {
-                UnityEngine.Debug.LogError("Planet built zero visible chunks. Check block definitions and biome block references.");
-            }
 
             overlay.Report(1f, "Ready.");
             yield return null;
             overlay.SetVisible(false);
             buildComplete = true;
-
-            if (surfaceCamera != null)
-            {
-                surfaceCamera.enabled = true;
-            }
-
-            if (playerController != null)
-            {
-                playerController.enabled = true;
-                var characterController = playerController.GetComponent<CharacterController>();
-                if (characterController != null)
-                {
-                    characterController.enabled = true;
-                }
-            }
         }
 
-        void SetupCelestialSystem()
+        bool HasLoadedChunks()
         {
+            return chunkRoot != null
+                ? chunkRoot.childCount > 0
+                : worldRootTransform != null && worldRootTransform.childCount > 0;
+        }
+
+        void SetupPlayer(FlatSpawnCamera camera, ref HexCoord spawnHex)
+        {
+            Transform player = ResolvePlayerTransform();
+            if (player == null)
+            {
+                var playerObject = new GameObject("Player");
+                player = playerObject.transform;
+            }
+
+            player.SetParent(null, true);
+            player.position = Vector3.zero;
+
+            var controller = player.GetComponent<CharacterController>();
+            if (controller == null)
+            {
+                controller = player.gameObject.AddComponent<CharacterController>();
+            }
+
+            playerController = player.GetComponent<FlatPlayerController>();
+            if (playerController == null)
+            {
+                playerController = player.gameObject.AddComponent<FlatPlayerController>();
+            }
+
+            playerController.enabled = false;
+            playerController.Initialize(settings, worldScroller, chunkManager, camera != null ? camera.transform : null);
+
+            if (camera != null)
+            {
+                camera.TrySpawn(hexWorld, settings, player);
+                spawnHex = camera.SpawnHex;
+            }
+
+            worldScroller.Initialize(settings, worldRootTransform, player, spawnHex);
+        }
+
+        void SetupCelestial(Transform player)
+        {
+            celestialSystem = GetComponent<CelestialSystem>();
             if (celestialSystem == null)
             {
-                celestialSystem = GetComponent<CelestialSystem>();
-                if (celestialSystem == null)
-                {
-                    celestialSystem = gameObject.AddComponent<CelestialSystem>();
-                }
+                celestialSystem = gameObject.AddComponent<CelestialSystem>();
             }
 
-            celestialSystem.Initialize(settings, planetWorld, directionalLight, playerAnchor);
+            celestialSystem.Initialize(settings, directionalLight, player);
         }
 
-        void SetupPlayerAnchor(SurfaceSpawnCamera surfaceCamera)
+        Transform ResolvePlayerTransform()
         {
-            Transform anchorTransform = playerAnchorRoot;
-            if (anchorTransform == null)
+            if (playerRoot != null)
             {
-                var anchorObject = new GameObject("PlayerAnchor");
-                anchorObject.transform.SetParent(transform, false);
-                anchorTransform = anchorObject.transform;
+                return playerRoot;
             }
 
-            playerAnchor = anchorTransform.GetComponent<PlayerAnchor>();
-            if (playerAnchor == null)
-            {
-                playerAnchor = anchorTransform.gameObject.AddComponent<PlayerAnchor>();
-            }
-
-            if (surfaceCamera != null)
-            {
-                surfaceCamera.transform.SetParent(anchorTransform, false);
-                surfaceCamera.TrySpawnOnSurface(allowDuringBuild: true);
-            }
-
-            DetachPlayerFromPlanetSpin(anchorTransform, transform);
-            EnsurePlayerController(anchorTransform.gameObject, surfaceCamera);
+            GameObject existing = GameObject.Find("Player");
+            return existing != null ? existing.transform : null;
         }
 
-        static void DetachPlayerFromPlanetSpin(Transform anchorTransform, Transform planetTransform)
+        void ClearWorld()
         {
-            if (planetTransform == null)
+            if (chunkManager != null)
+            {
+                chunkManager.ClearAll();
+            }
+
+            Transform root = chunkRoot != null ? chunkRoot : transform;
+            for (int i = root.childCount - 1; i >= 0; i--)
+            {
+                Destroy(root.GetChild(i).gameObject);
+            }
+
+            if (worldRootTransform != null)
+            {
+                Destroy(worldRootTransform.gameObject);
+                worldRootTransform = null;
+            }
+        }
+
+        void Update()
+        {
+            if (!buildComplete || chunkManager == null || worldScroller == null)
             {
                 return;
             }
 
-            var rigObject = GameObject.Find("PlayerRig");
-            if (rigObject == null)
+            HexCoord before = worldScroller.PlayerWorldHex;
+            chunkManager.RefreshAroundPlayer();
+            HexCoord after = worldScroller.PlayerWorldHex;
+            if (before != after)
             {
-                rigObject = new GameObject("PlayerRig");
+                chunkManager.RefreshAroundPlayer(forceRebuildMeshes: true);
             }
-
-            Transform rigTransform = rigObject.transform;
-            rigTransform.SetPositionAndRotation(planetTransform.position, Quaternion.identity);
-            if (anchorTransform.parent != rigTransform)
-            {
-                anchorTransform.SetParent(rigTransform, true);
-            }
-        }
-
-        void EnsurePlayerController(GameObject anchorObject, SurfaceSpawnCamera surfaceCamera)
-        {
-            var characterController = anchorObject.GetComponent<CharacterController>();
-            if (characterController == null)
-            {
-                characterController = anchorObject.AddComponent<CharacterController>();
-            }
-
-            playerController = anchorObject.GetComponent<SurfacePlayerController>();
-            if (playerController == null)
-            {
-                playerController = anchorObject.AddComponent<SurfacePlayerController>();
-            }
-
-            playerController.Initialize(
-                planetWorld,
-                transform,
-                surfaceCamera != null ? surfaceCamera.transform : null,
-                surfaceCamera);
-            playerController.enabled = false;
-        }
-
-        void ClearChunks()
-        {
-            Transform root = chunkRoot != null ? chunkRoot : transform;
-            for (int i = root.childCount - 1; i >= 0; i--)
-            {
-                Transform child = root.GetChild(i);
-                if (child.GetComponent<PlayerAnchor>() != null)
-                {
-                    continue;
-                }
-
-                if (Application.isPlaying)
-                {
-                    Destroy(child.gameObject);
-                }
-                else
-                {
-                    DestroyImmediate(child.gameObject);
-                }
-            }
-        }
-
-        static void AttachMeshCollider(GameObject chunkObject, Mesh mesh)
-        {
-            var meshCollider = chunkObject.AddComponent<MeshCollider>();
-            meshCollider.sharedMesh = mesh;
-            meshCollider.cookingOptions = MeshColliderCookingOptions.CookForFasterSimulation;
         }
     }
 }

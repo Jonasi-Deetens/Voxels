@@ -4,7 +4,7 @@ namespace Voxels.World
 {
     public static class BlockRegistryBuilder
     {
-        public static BlockRegistry Build(PlanetSettings settings, BlockDefinition[] blockDefinitions)
+        public static BlockRegistry Build(WorldSettings settings, BlockDefinition[] blockDefinitions)
         {
             var registry = new BlockRegistry();
             registry.RegisterRange(blockDefinitions);

@@ -10,46 +10,34 @@ namespace Voxels.Runtime
     {
         const string UrpUnlitShaderName = "Universal Render Pipeline/Unlit";
         const string UrpLitShaderName = "Universal Render Pipeline/Lit";
-        const float MoonAngularSizeFactor = 0.45f;
         const float SunEmissionIntensity = 6f;
-
-        [SerializeField] Transform planetTransform;
-        [Tooltip("Spin the planet mesh with the day/night cycle. The player is carried with the rotation.")]
-        [SerializeField] bool rotatePlanetWithDayCycle = true;
+        const float MoonEmissionIntensity = 1.2f;
 
         Transform skyRoot;
         Transform sunVisual;
         Transform moonVisual;
 
-        PlanetSettings settings;
-        PlanetWorld planetWorld;
+        WorldSettings settings;
         Light sunLight;
-        PlayerAnchor playerAnchor;
+        Transform playerTransform;
         float orbitPlaneAngle;
         float timeOfDay;
 
         public float TimeOfDay => timeOfDay;
 
-        public void Initialize(
-            PlanetSettings planetSettings,
-            PlanetWorld world,
-            Light directionalLight,
-            PlayerAnchor anchor)
+        public void Initialize(WorldSettings worldSettings, Light directionalLight, Transform player)
         {
-            settings = planetSettings;
-            planetWorld = world;
+            settings = worldSettings;
             sunLight = directionalLight != null ? directionalLight : FindSunLight();
-            playerAnchor = anchor;
-            planetTransform = planetTransform != null ? planetTransform : transform;
+            playerTransform = player;
             orbitPlaneAngle = (settings.Seed * 0.314159f) % (math.PI * 2f);
-
             EnsureSkyRoot();
             ApplyCelestial(0f);
         }
 
         void Update()
         {
-            if (settings == null || planetWorld == null)
+            if (settings == null)
             {
                 return;
             }
@@ -66,28 +54,27 @@ namespace Voxels.Runtime
 
         void ApplyCelestial(float normalizedTime)
         {
-            float spinAngle = normalizedTime * 360f;
-            float3 spinAxis = settings.ResolveSpinAxis();
-            if (rotatePlanetWithDayCycle && planetTransform != null)
-            {
-                planetTransform.rotation = Quaternion.AngleAxis(spinAngle, (Vector3)spinAxis);
-            }
-
-            float sunAngle = normalizedTime * math.PI * 2f;
-            float sunDistance = planetWorld.ApproximateOuterRadius * settings.SunDistanceMultiplier;
+            float orbitRadius = settings.ResolveOrbitRadius();
+            float3 orbitAxis = settings.ResolveOrbitAxisTilt();
             float3 orbitX = math.normalize(new float3(math.cos(orbitPlaneAngle), 0f, math.sin(orbitPlaneAngle)));
-            float3 orbitZ = math.normalize(math.cross(spinAxis, orbitX));
+            float3 orbitZ = math.normalize(math.cross(orbitAxis, orbitX));
             if (math.lengthsq(orbitZ) < 0.001f)
             {
                 orbitZ = new float3(0f, 0f, 1f);
             }
 
+            float sunAngle = normalizedTime * math.PI * 2f;
+            float moonAngle = sunAngle + math.PI + settings.MoonOrbitPhaseOffset * math.PI * 2f;
+
             float3 sunDirection = math.cos(sunAngle) * orbitX + math.sin(sunAngle) * orbitZ;
-            Vector3 sunPosition = (Vector3)(sunDirection * sunDistance);
-            float sunDiameter = AngularDiameterToWorldSize(sunDistance, settings.SunAngularSize);
-            float moonDiameter = AngularDiameterToWorldSize(
-                sunDistance * 0.95f,
-                settings.SunAngularSize * MoonAngularSizeFactor);
+            float3 moonDirection = math.cos(moonAngle) * orbitX + math.sin(moonAngle) * orbitZ;
+
+            Vector3 origin = playerTransform != null ? playerTransform.position : Vector3.zero;
+            Vector3 sunPosition = origin + (Vector3)(sunDirection * orbitRadius);
+            Vector3 moonPosition = origin + (Vector3)(moonDirection * orbitRadius * 0.98f);
+
+            float sunDiameter = AngularDiameterToWorldSize(orbitRadius, settings.SunAngularSize);
+            float moonDiameter = AngularDiameterToWorldSize(orbitRadius, settings.MoonAngularSize);
 
             if (sunVisual != null)
             {
@@ -97,14 +84,13 @@ namespace Voxels.Runtime
 
             if (moonVisual != null)
             {
-                moonVisual.position = (Vector3)(-sunDirection * sunDistance * 0.95f);
+                moonVisual.position = moonPosition;
                 moonVisual.localScale = Vector3.one * moonDiameter;
             }
 
             if (sunLight != null)
             {
-                Vector3 lightOrigin = playerAnchor != null ? playerAnchor.transform.position : Vector3.zero;
-                Vector3 lightDirection = (sunPosition - lightOrigin).normalized;
+                Vector3 lightDirection = (sunPosition - origin).normalized;
                 sunLight.transform.rotation = Quaternion.LookRotation(-lightDirection, Vector3.up);
                 RenderSettings.sun = sunLight;
             }
@@ -120,15 +106,8 @@ namespace Voxels.Runtime
             var skyObject = new GameObject("Sky");
             skyRoot = skyObject.transform;
 
-            sunVisual = CreateSkySphere(
-                "Sun",
-                CreateSunMaterial(),
-                ShadowCastingMode.Off);
-
-            moonVisual = CreateSkySphere(
-                "Moon",
-                CreateMoonMaterial(),
-                ShadowCastingMode.Off);
+            sunVisual = CreateSkySphere("Sun", CreateSunMaterial(), ShadowCastingMode.Off);
+            moonVisual = CreateSkySphere("Moon", CreateMoonMaterial(), ShadowCastingMode.Off);
         }
 
         Transform CreateSkySphere(string objectName, Material material, ShadowCastingMode shadowMode)
@@ -155,7 +134,7 @@ namespace Voxels.Runtime
             }
 
             var material = new Material(shader);
-            Color sunTint = new Color(1f, 0.92f, 0.55f, 1f);
+            Color sunTint = new Color(1f, 0.55f, 0.15f, 1f);
 
             if (shader.name == UrpLitShaderName)
             {
@@ -166,23 +145,35 @@ namespace Voxels.Runtime
             }
             else
             {
-                // HDR unlit color drives bloom when post-processing is enabled.
                 material.SetColor("_BaseColor", sunTint * SunEmissionIntensity);
             }
 
             return material;
         }
 
-        static Material CreateMoonMaterial()
+        Material CreateMoonMaterial()
         {
-            Shader shader = Shader.Find(UrpUnlitShaderName);
+            Shader shader = Shader.Find(UrpLitShaderName) ?? Shader.Find(UrpUnlitShaderName);
             if (shader == null)
             {
                 return null;
             }
 
             var material = new Material(shader);
-            material.SetColor("_BaseColor", new Color(1.15f, 1.18f, 1.28f, 1f));
+            Color moonTint = new Color(0.88f, 0.9f, 0.92f, 1f);
+
+            if (shader.name == UrpLitShaderName)
+            {
+                material.SetColor("_BaseColor", moonTint * 0.35f);
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", moonTint * MoonEmissionIntensity);
+                material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            }
+            else
+            {
+                material.SetColor("_BaseColor", moonTint * MoonEmissionIntensity);
+            }
+
             return material;
         }
 

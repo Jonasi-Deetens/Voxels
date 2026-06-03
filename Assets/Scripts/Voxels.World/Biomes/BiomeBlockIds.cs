@@ -35,7 +35,7 @@ namespace Voxels.World
         {
             if (biome == null)
             {
-                throw new InvalidOperationException("PlanetSettings.Biome is not assigned.");
+                throw new InvalidOperationException("WorldSettings.Biome is not assigned.");
             }
 
             return new BiomeBlockIds(

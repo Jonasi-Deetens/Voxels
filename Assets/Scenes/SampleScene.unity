@@ -289,7 +289,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4000000000000040000000000000003, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Voxels.Runtime::Voxels.Runtime.SurfaceSpawnCamera
+  m_EditorClassIdentifier: Voxels.Runtime::Voxels.Runtime.FlatSpawnCamera
   spawnOnStart: 0
   lookPitchDown: 8
   orbitSpeed: 90

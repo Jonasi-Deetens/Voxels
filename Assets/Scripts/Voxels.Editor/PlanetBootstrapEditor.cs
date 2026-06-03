@@ -14,7 +14,7 @@ namespace Voxels.EditorTools
             if (GUILayout.Button("Regenerate Planet"))
             {
                 var bootstrap = (PlanetBootstrap)target;
-                bootstrap.RegeneratePlanet();
+                bootstrap.RegenerateWorld();
 
                 if (!Application.isPlaying && bootstrap.gameObject.scene.IsValid())
                 {
