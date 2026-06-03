@@ -30,6 +30,7 @@ namespace Voxels.Runtime
         float coyoteTimer;
         float jumpBufferTimer;
         HexCoord lastNotifiedHex;
+        WaterDepthTier waterDepth;
 
         public bool IsGrounded { get; private set; }
         public bool IsSwimming { get; private set; }
@@ -125,7 +126,8 @@ namespace Voxels.Runtime
                 input = Vector2.ClampMagnitude(input, 1f);
                 Vector3 forward = Vector3.ProjectOnPlane(facing.forward, Vector3.up).normalized;
                 Vector3 right = Vector3.Cross(Vector3.up, forward);
-                float speed = settings.SwimSpeed * (GameInput.IsSprintHeld() ? sprintMultiplier : 1f);
+                float speed = settings.SwimSpeed * (waterDepth == WaterDepthTier.Deep ? 1.15f : 0.85f) *
+                    (GameInput.IsSprintHeld() ? sprintMultiplier : 1f);
                 move += (forward * input.y + right * input.x) * speed;
             }
 
@@ -165,7 +167,8 @@ namespace Voxels.Runtime
 
         void HandleSurvivalMovement()
         {
-            IsSwimming = FluidHelper.IsPlayerInWater(hexWorld, settings, scroller, transform);
+            waterDepth = FluidHelper.GetPlayerWaterDepth(hexWorld, settings, scroller, transform);
+            IsSwimming = waterDepth != WaterDepthTier.None;
             if (IsSwimming)
             {
                 return;
@@ -213,7 +216,8 @@ namespace Voxels.Runtime
                 coyoteTimer = 0f;
             }
 
-            verticalVelocity -= gravity * Time.deltaTime;
+            float gravityScale = waterDepth == WaterDepthTier.Deep ? 0.35f : 1f;
+            verticalVelocity -= gravity * gravityScale * Time.deltaTime;
 
             Vector2 input = GameInput.ReadMoveAxes();
             Vector3 move = Vector3.zero;

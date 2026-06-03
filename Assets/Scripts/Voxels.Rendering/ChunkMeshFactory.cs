@@ -7,7 +7,7 @@ namespace Voxels.Rendering
     {
         public static Mesh CreateMesh(ChunkMeshData data)
         {
-            var mesh = new Mesh { name = "PlanetChunk" };
+            var mesh = new Mesh { name = "WorldChunk" };
             mesh.indexFormat = data.Vertices.Count > 65535
                 ? UnityEngine.Rendering.IndexFormat.UInt32
                 : UnityEngine.Rendering.IndexFormat.UInt16;

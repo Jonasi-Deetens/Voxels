@@ -45,6 +45,16 @@ namespace Voxels.World
         [SerializeField] int caveMinLayerAboveCore = 6;
         [SerializeField] int caveMaxDepthBelowSurface = 5;
 
+        [Header("Structures")]
+        [SerializeField] int structureSpacing = 5;
+
+        [Header("Ambience")]
+        [SerializeField] Color dayAmbientColor = new Color(0.55f, 0.62f, 0.7f);
+        [SerializeField] Color nightAmbientColor = new Color(0.08f, 0.1f, 0.18f);
+        [SerializeField] AudioClip ambientLoop;
+        [SerializeField] float ambientVolume = 0.35f;
+        [SerializeField] int nightCreatureLightThreshold = 5;
+
         [Header("Climate / Spawn")]
         [SerializeField] int alpineElevationThreshold = 14;
         [SerializeField] int spawnPreference;
@@ -77,6 +87,12 @@ namespace Voxels.World
         public float CaveThreshold => caveThreshold;
         public int CaveMinLayerAboveCore => caveMinLayerAboveCore;
         public int CaveMaxDepthBelowSurface => caveMaxDepthBelowSurface;
+        public int StructureSpacing => structureSpacing;
+        public Color DayAmbientColor => dayAmbientColor;
+        public Color NightAmbientColor => nightAmbientColor;
+        public AudioClip AmbientLoop => ambientLoop;
+        public float AmbientVolume => ambientVolume;
+        public int NightCreatureLightThreshold => nightCreatureLightThreshold;
         public int AlpineElevationThreshold => alpineElevationThreshold;
         public int SpawnPreference => spawnPreference;
     }

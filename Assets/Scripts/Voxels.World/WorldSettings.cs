@@ -50,6 +50,9 @@ namespace Voxels.World
         [Header("Atmosphere")]
         [SerializeField] bool enableDistanceFog = true;
 
+        [Header("Meshing")]
+        [SerializeField] bool useGreedyColumnMeshing = true;
+
         [Header("Performance")]
         [SerializeField] WorldPerformancePreset performancePreset = WorldPerformancePreset.Balanced;
         [SerializeField] float buildFrameBudgetMs = 16f;
@@ -92,6 +95,7 @@ namespace Voxels.World
         public int ChunkMeshPadding => chunkMeshPadding;
         public bool ShowWorldBoundary => showWorldBoundary;
         public float BoundaryWallHeight => boundaryWallHeight;
+        public bool UseGreedyColumnMeshing => useGreedyColumnMeshing;
         public bool UseBackgroundMeshBuild => useBackgroundMeshBuild;
 
         public void ApplyPerformancePreset()

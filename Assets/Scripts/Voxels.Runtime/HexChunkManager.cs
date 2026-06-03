@@ -35,7 +35,8 @@ namespace Voxels.Runtime
         WorldScroller scroller;
         Transform chunkRoot;
         FlatTerrainGenerator terrainGenerator;
-        FlatHexBlockMeshBuilder meshBuilder;
+        FlatHexBlockMeshBuilder blockMeshBuilder;
+        FlatHexColumnMeshBuilder columnMeshBuilder;
         FlatWaterMeshBuilder waterMeshBuilder;
         WorldRuntimeProfiler runtimeProfiler;
         HexCoord lastPlayerHex = new HexCoord(int.MinValue, int.MinValue);
@@ -57,7 +58,8 @@ namespace Voxels.Runtime
             scroller = worldScroller;
             chunkRoot = root;
             terrainGenerator = new FlatTerrainGenerator(settings);
-            meshBuilder = new FlatHexBlockMeshBuilder(hexWorld);
+            blockMeshBuilder = new FlatHexBlockMeshBuilder(hexWorld);
+            columnMeshBuilder = new FlatHexColumnMeshBuilder(hexWorld);
             waterMeshBuilder = new FlatWaterMeshBuilder(hexWorld);
             runtimeProfiler = FindAnyObjectByType<WorldRuntimeProfiler>();
         }
@@ -128,6 +130,16 @@ namespace Voxels.Runtime
             }
 
             EnsureMeshQueueRunning();
+        }
+
+        ChunkMeshData BuildTerrainMesh(HexCoord playerHex, System.Collections.Generic.IReadOnlyList<HexCoord> hexes)
+        {
+            if (settings.UseGreedyColumnMeshing)
+            {
+                return columnMeshBuilder.BuildChunk(playerHex, hexes);
+            }
+
+            return blockMeshBuilder.BuildChunk(playerHex, hexes);
         }
 
         public void RebuildAllMeshes(HexCoord playerHex)
@@ -227,7 +239,13 @@ namespace Voxels.Runtime
             List<HexCoord> core = HexChunkUtility.CollectChunkHexes(hexWorld, chunk, settings.ChunkSizeHex);
             for (int i = 0; i < core.Count; i++)
             {
-                if (!hexWorld.DataCache.HasColumn(core[i]))
+                HexCoord hex = core[i];
+                if (hexWorld.IsColumnDirty(hex))
+                {
+                    continue;
+                }
+
+                if (!hexWorld.DataCache.HasColumn(hex))
                 {
                     return true;
                 }
@@ -281,7 +299,7 @@ namespace Voxels.Runtime
             if (settings.UseBackgroundMeshBuild)
             {
                 Task<ChunkMeshData> terrainTask = Task.Run(
-                    () => meshBuilder.BuildChunk(playerHex, loaded.CoreHexes));
+                    () => BuildTerrainMesh(playerHex, loaded.CoreHexes));
                 Task<ChunkMeshData> waterTask = Task.Run(
                     () => waterMeshBuilder.BuildChunk(playerHex, loaded.CoreHexes));
 
@@ -295,7 +313,7 @@ namespace Voxels.Runtime
             }
             else
             {
-                terrainData = meshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
+                terrainData = BuildTerrainMesh(playerHex, loaded.CoreHexes);
                 waterData = waterMeshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
             }
 
@@ -314,7 +332,7 @@ namespace Voxels.Runtime
                 return;
             }
 
-            ChunkMeshData terrainData = meshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
+            ChunkMeshData terrainData = BuildTerrainMesh(playerHex, loaded.CoreHexes);
             ChunkMeshData waterData = waterMeshBuilder.BuildChunk(playerHex, loaded.CoreHexes);
             float buildStart = Time.realtimeSinceStartup;
             ApplyChunkMeshData(chunk, loaded, terrainData, waterData);

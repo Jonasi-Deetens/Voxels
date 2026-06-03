@@ -42,6 +42,8 @@ namespace Voxels.World
 
         public BiomeDefinition GetBiome(in HexCoord hex) => dataCache.GetBiome(hex);
 
+        public bool IsColumnDirty(in HexCoord hex) => dirtyHexes.Contains(hex);
+
         public void MarkColumnDirty(in HexCoord hex) => dirtyHexes.Add(hex);
 
         public void ClearDirtyColumns() => dirtyHexes.Clear();

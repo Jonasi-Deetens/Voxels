@@ -69,7 +69,7 @@ namespace Voxels.Runtime
                 yield break;
             }
 
-            PlanetBuildOverlay overlay = PlanetBuildOverlay.Ensure();
+            WorldBuildOverlay overlay = WorldBuildOverlay.Ensure();
             overlay.SetVisible(true);
             overlay.Report(0f, "Preparing world…");
 
@@ -101,6 +101,10 @@ namespace Voxels.Runtime
             runtimeProfiler = GetOrAdd<WorldRuntimeProfiler>();
             gameHud = GetOrAdd<GameHudView>();
             GetOrAdd<PlayerGameplayState>();
+            PlayerInventory playerInventory = GetOrAdd<PlayerInventory>();
+            BiomeAmbienceController biomeAmbience = GetOrAdd<BiomeAmbienceController>();
+            NightCreatureSpawner nightSpawner = GetOrAdd<NightCreatureSpawner>();
+            DayNightGameplayController dayNight = GetOrAdd<DayNightGameplayController>();
 
             blockHotbar.Initialize(blockDefinitions, registry);
             chunkManager.Initialize(hexWorld, settings, worldScroller, chunksParent);
@@ -138,9 +142,14 @@ namespace Voxels.Runtime
                 player,
                 blockHotbar,
                 blockFeedback,
-                toolState);
-            saveSystem.Initialize(hexWorld, settings, chunkManager, worldScroller, blockHotbar, toolState, player);
-            gameHud.Initialize(worldScroller, chunkManager, celestialSystem, blockHotbar, toolState, runtimeProfiler, settings);
+                toolState,
+                playerInventory);
+            saveSystem.Initialize(hexWorld, settings, chunkManager, worldScroller, blockHotbar, toolState, playerInventory, player);
+            gameHud.Initialize(worldScroller, chunkManager, celestialSystem, blockHotbar, toolState, runtimeProfiler, settings, blockInteractor, playerInventory);
+            biomeAmbience.Initialize(worldScroller, celestialSystem);
+            nightSpawner.Initialize(worldScroller, settings);
+            dayNight.Initialize(celestialSystem, nightSpawner);
+            GrantStarterInventory(playerInventory, registry);
 
             if (spawnCamera != null)
             {

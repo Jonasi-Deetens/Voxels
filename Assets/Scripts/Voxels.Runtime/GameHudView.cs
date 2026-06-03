@@ -22,6 +22,9 @@ namespace Voxels.Runtime
     PlayerToolState toolState;
     WorldRuntimeProfiler profiler;
     WorldSettings settings;
+    HexBlockInteractor blockInteractor;
+    PlayerInventory inventory;
+    Slider breakSlider;
 
     const int MinimapSize = 25;
 
@@ -32,7 +35,9 @@ namespace Voxels.Runtime
       BlockHotbar blockHotbar,
       PlayerToolState tools,
       WorldRuntimeProfiler runtimeProfiler,
-      WorldSettings worldSettings)
+      WorldSettings worldSettings,
+      HexBlockInteractor interactor = null,
+      PlayerInventory playerInventory = null)
     {
       scroller = worldScroller;
       chunkManager = chunks;
@@ -41,6 +46,8 @@ namespace Voxels.Runtime
       toolState = tools;
       profiler = runtimeProfiler;
       settings = worldSettings;
+      blockInteractor = interactor;
+      inventory = playerInventory;
       EnsureUi();
     }
 
@@ -108,6 +115,17 @@ namespace Voxels.Runtime
         wrapMode = TextureWrapMode.Clamp,
       };
       minimapImage.texture = minimapTexture;
+
+      var breakObject = new GameObject("BreakProgress", typeof(RectTransform), typeof(Slider));
+      breakObject.transform.SetParent(canvasObject.transform, false);
+      var breakRect = breakObject.GetComponent<RectTransform>();
+      breakRect.anchorMin = new Vector2(0.5f, 0.5f);
+      breakRect.anchorMax = new Vector2(0.5f, 0.5f);
+      breakRect.sizeDelta = new Vector2(160f, 12f);
+      breakSlider = breakObject.GetComponent<Slider>();
+      breakSlider.minValue = 0f;
+      breakSlider.maxValue = 1f;
+      breakSlider.gameObject.SetActive(false);
     }
 
     static Text CreateText(Transform parent, string name, int fontSize, TextAnchor anchor)
@@ -140,6 +158,7 @@ namespace Voxels.Runtime
       }
 
       UpdateHotbar();
+      UpdateBreakBar();
       if (showDebug)
       {
         UpdateDebug();
@@ -166,7 +185,9 @@ namespace Voxels.Runtime
       for (int i = 0; i < hotbarLabels.Length; i++)
       {
         bool selected = i == hotbar.SelectedIndex;
-        hotbarLabels[i].text = $"{i + 1}. {hotbar.GetSlotLabel(i, registry)}";
+        string count = inventory != null ? inventory.FormatCount(hotbar.GetSlot(i)) : string.Empty;
+        string suffix = string.IsNullOrEmpty(count) ? string.Empty : $" x{count}";
+        hotbarLabels[i].text = $"{i + 1}. {hotbar.GetSlotLabel(i, registry)}{suffix}";
         hotbarLabels[i].color = selected ? new Color(1f, 0.92f, 0.45f) : Color.white;
       }
     }
@@ -191,6 +212,21 @@ namespace Voxels.Runtime
         $"Sun {celestial?.SunHeight:0.00}  TOD {celestial?.TimeOfDay:0.00}\n" +
         $"{perf}\n" +
         $"LMB break | RMB place | MMB pick | T tool | F5/F6 save";
+    }
+
+    void UpdateBreakBar()
+    {
+      if (breakSlider == null || blockInteractor == null)
+      {
+        return;
+      }
+
+      bool show = blockInteractor.IsBreaking;
+      breakSlider.gameObject.SetActive(show);
+      if (show)
+      {
+        breakSlider.value = blockInteractor.BreakProgress;
+      }
     }
 
     void UpdateMinimap()

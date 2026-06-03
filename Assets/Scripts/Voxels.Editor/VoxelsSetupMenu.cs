@@ -131,7 +131,7 @@ namespace Voxels.EditorTools
 
             catalogObject.ApplyModifiedPropertiesWithoutUndo();
 
-            WorldSettings world = CreateOrLoad<WorldSettings>("Assets/Data/Planet_Default.asset");
+            WorldSettings world = CreateOrLoad<WorldSettings>("Assets/Data/World_Default.asset");
             SerializedObject worldObject = new SerializedObject(world);
             worldObject.FindProperty("seed").intValue = 42;
             worldObject.FindProperty("biomeCatalog").objectReferenceValue = catalog;
@@ -204,7 +204,7 @@ namespace Voxels.EditorTools
                 chunkRoot = chunkRootObject.transform;
             }
 
-            WorldSettings settings = AssetDatabase.LoadAssetAtPath<WorldSettings>("Assets/Data/Planet_Default.asset");
+            WorldSettings settings = AssetDatabase.LoadAssetAtPath<WorldSettings>("Assets/Data/World_Default.asset");
             BlockDefinition[] blocks =
             {
                 AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Grass.asset"),

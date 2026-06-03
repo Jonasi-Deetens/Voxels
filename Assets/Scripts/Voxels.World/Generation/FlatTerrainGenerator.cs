@@ -46,6 +46,12 @@ namespace Voxels.World.Generation
             for (int i = 0; i < cells.Count; i++)
             {
                 HexCoord hex = cells[i];
+                if (world.IsColumnDirty(hex) && world.TryGetColumn(hex, out BlockColumn existing))
+                {
+                    surfaceHeights[hex] = existing.SurfaceHeight;
+                    continue;
+                }
+
                 int surfaceHeight = SampleSurfaceHeight(world, hex, terrainProfile, seaLevel, minSurfaceLayer);
                 surfaceHeights[hex] = surfaceHeight;
                 world.GetOrCreateColumn(hex).SetSurfaceHeight(surfaceHeight);
@@ -57,6 +63,11 @@ namespace Voxels.World.Generation
 
             foreach (HexCoord hex in cells)
             {
+                if (world.IsColumnDirty(hex))
+                {
+                    continue;
+                }
+
                 int surfaceHeight = surfaceHeights[hex];
                 BlockColumn column = world.GetOrCreateColumn(hex);
                 ClimateSample climate = climateSampler.Sample(
@@ -72,6 +83,8 @@ namespace Voxels.World.Generation
                 FillColumn(world, column, columnBottom, surfaceHeight, blocks, hex, cellBiome, seaLevel);
                 StructureGenerator.TryPlaceStructure(world, hex, column, settings, seed);
             }
+
+            WaterSpreadUtility.ApplyToCells(world, cells, settings);
         }
 
         void FillColumn(

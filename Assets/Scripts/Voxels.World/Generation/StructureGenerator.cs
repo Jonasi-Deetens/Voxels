@@ -26,23 +26,31 @@ namespace Voxels.World.Generation
                 return;
             }
 
-            float roll = Hash01(worldHex, seed, 701);
-            if (roll > settings.StructureDensity)
+            BiomeDefinition biome = world.GetBiome(worldHex);
+            if (!StructurePlacementPlanner.CanPlaceStructure(world, worldHex, biome, seed, settings))
             {
                 return;
             }
 
-            BiomeDefinition biome = world.GetBiome(worldHex);
-            StructureKind kind = ResolveStructureKind(biome);
-            switch (kind)
+            PoiKind poi = ResolvePoiKind(biome, worldHex, seed);
+            switch (poi)
             {
-                case StructureKind.Cactus:
+                case PoiKind.MushroomCluster:
+                    PlaceMushroomCluster(column, surfaceHeight, settings, biome);
+                    break;
+                case PoiKind.DeadTree:
+                    PlaceDeadTree(column, surfaceHeight, settings, biome);
+                    break;
+                case PoiKind.BoulderPatch:
+                    PlaceBoulderPatch(column, surfaceHeight, settings, biome);
+                    break;
+                case PoiKind.Cactus:
                     PlaceCactus(column, surfaceHeight, settings, biome);
                     break;
-                case StructureKind.Rock:
+                case PoiKind.Rock:
                     PlaceRock(column, surfaceHeight, settings, biome);
                     break;
-                case StructureKind.Pine:
+                case PoiKind.Pine:
                     PlacePine(column, surfaceHeight, settings, biome);
                     break;
                 default:
@@ -51,38 +59,85 @@ namespace Voxels.World.Generation
             }
         }
 
-        enum StructureKind
+        enum PoiKind
         {
             Oak,
             Pine,
             Cactus,
             Rock,
+            MushroomCluster,
+            DeadTree,
+            BoulderPatch,
         }
 
-        static StructureKind ResolveStructureKind(BiomeDefinition biome)
+        static PoiKind ResolvePoiKind(BiomeDefinition biome, in HexCoord hex, uint seed)
         {
-            if (biome == null)
+            string name = biome != null ? biome.name.ToLowerInvariant() : string.Empty;
+            float variant = Hash01(hex, seed, 811);
+
+            if (name.Contains("fungal") || name.Contains("swamp"))
             {
-                return StructureKind.Oak;
+                return variant < 0.55f ? PoiKind.MushroomCluster : PoiKind.DeadTree;
             }
 
-            string name = biome.name.ToLowerInvariant();
             if (name.Contains("desert") || name.Contains("savanna"))
             {
-                return StructureKind.Cactus;
+                return variant < 0.7f ? PoiKind.Cactus : PoiKind.BoulderPatch;
             }
 
             if (name.Contains("alpine") || name.Contains("tundra") || name.Contains("crystal"))
             {
-                return StructureKind.Rock;
+                return variant < 0.65f ? PoiKind.Rock : PoiKind.BoulderPatch;
             }
 
-            if (name.Contains("taiga") || name.Contains("forest") || name.Contains("swamp"))
+            if (name.Contains("taiga") || name.Contains("forest"))
             {
-                return StructureKind.Pine;
+                return variant < 0.15f ? PoiKind.DeadTree : PoiKind.Pine;
             }
 
-            return StructureKind.Oak;
+            if (name.Contains("ash"))
+            {
+                return PoiKind.DeadTree;
+            }
+
+            return variant < 0.12f ? PoiKind.BoulderPatch : PoiKind.Oak;
+        }
+
+        static void PlaceMushroomCluster(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
+        {
+            BlockId stem = ResolveTrunk(biome, new BlockId(2));
+            BlockId cap = biome?.SurfaceBlock != null ? biome.SurfaceBlock.BlockId : new BlockId(14);
+            column.SetBlock(surfaceHeight + 1, stem);
+            for (int layer = surfaceHeight + 2; layer <= surfaceHeight + 3; layer++)
+            {
+                if (layer < settings.ColumnCapacity)
+                {
+                    column.SetBlock(layer, cap);
+                }
+            }
+        }
+
+        static void PlaceDeadTree(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
+        {
+            BlockId wood = ResolveTrunk(biome, new BlockId(2));
+            int height = math.clamp(2, 2, settings.MaxHeightAboveSurface - 1);
+            for (int layer = surfaceHeight + 1; layer <= surfaceHeight + height; layer++)
+            {
+                if (layer < settings.ColumnCapacity)
+                {
+                    column.SetBlock(layer, wood);
+                }
+            }
+        }
+
+        static void PlaceBoulderPatch(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
+        {
+            BlockId stone = biome?.BedrockBlock != null ? biome.BedrockBlock.BlockId : new BlockId(3);
+            column.SetBlock(surfaceHeight + 1, stone);
+            if (surfaceHeight + 2 < settings.ColumnCapacity)
+            {
+                column.SetBlock(surfaceHeight + 2, stone);
+            }
         }
 
         static void PlaceOak(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
@@ -91,7 +146,7 @@ namespace Voxels.World.Generation
             BlockId leaves = ResolveLeaves(biome, new BlockId(1));
             int trunkHeight = math.clamp(settings.TreeTrunkHeight, 2, settings.MaxHeightAboveSurface - 2);
             PlaceTrunk(column, surfaceHeight, trunkHeight, trunk, settings);
-            PlaceLeafDisc(column, surfaceHeight + trunkHeight, leaves, settings, radius: 1);
+            PlaceLeafDisc(column, surfaceHeight + trunkHeight, leaves, settings, 1);
         }
 
         static void PlacePine(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
@@ -102,7 +157,7 @@ namespace Voxels.World.Generation
             PlaceTrunk(column, surfaceHeight, trunkHeight, trunk, settings);
             for (int i = 0; i < 3; i++)
             {
-                PlaceLeafDisc(column, surfaceHeight + trunkHeight - i, leaves, settings, radius: 2 - i);
+                PlaceLeafDisc(column, surfaceHeight + trunkHeight - i, leaves, settings, 2 - i);
             }
         }
 
@@ -116,15 +171,12 @@ namespace Voxels.World.Generation
         static void PlaceRock(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
         {
             BlockId stone = biome?.BedrockBlock != null ? biome.BedrockBlock.BlockId : new BlockId(3);
-            int height = 2;
-            for (int layer = surfaceHeight + 1; layer <= surfaceHeight + height; layer++)
+            for (int layer = surfaceHeight + 1; layer <= surfaceHeight + 2; layer++)
             {
-                if (layer >= settings.ColumnCapacity)
+                if (layer < settings.ColumnCapacity)
                 {
-                    break;
+                    column.SetBlock(layer, stone);
                 }
-
-                column.SetBlock(layer, stone);
             }
         }
 
@@ -137,12 +189,10 @@ namespace Voxels.World.Generation
         {
             for (int layer = surfaceHeight + 1; layer <= surfaceHeight + trunkHeight; layer++)
             {
-                if (layer >= settings.ColumnCapacity)
+                if (layer < settings.ColumnCapacity)
                 {
-                    break;
+                    column.SetBlock(layer, trunk);
                 }
-
-                column.SetBlock(layer, trunk);
             }
         }
 
@@ -159,12 +209,10 @@ namespace Voxels.World.Generation
             }
 
             column.SetBlock(layer, leaves);
-            if (radius <= 0 || layer + 1 >= settings.ColumnCapacity)
+            if (radius > 0 && layer + 1 < settings.ColumnCapacity)
             {
-                return;
+                column.SetBlock(layer + 1, leaves);
             }
-
-            column.SetBlock(layer + 1, leaves);
         }
 
         static BlockId ResolveTrunk(BiomeDefinition biome, BlockId fallback) =>

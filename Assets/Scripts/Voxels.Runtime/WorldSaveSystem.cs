@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using Unity.Mathematics;
 using UnityEngine;
 using Voxels.Core.Blocks;
 using Voxels.Core.Hex;
@@ -11,6 +12,7 @@ namespace Voxels.Runtime
     {
         const string SaveFolderName = "voxels_world_save";
         const string ManifestFileName = "manifest.json";
+        const string ColumnsFolderName = "columns";
 
         HexWorld hexWorld;
         WorldSettings settings;
@@ -18,6 +20,7 @@ namespace Voxels.Runtime
         WorldScroller scroller;
         BlockHotbar hotbar;
         PlayerToolState toolState;
+        PlayerInventory inventory;
         Transform playerTransform;
 
         public void Initialize(
@@ -27,6 +30,7 @@ namespace Voxels.Runtime
             WorldScroller worldScroller,
             BlockHotbar blockHotbar,
             PlayerToolState playerTools,
+            PlayerInventory playerInventory,
             Transform player)
         {
             hexWorld = world;
@@ -35,6 +39,7 @@ namespace Voxels.Runtime
             scroller = worldScroller;
             hotbar = blockHotbar;
             toolState = playerTools;
+            inventory = playerInventory;
             playerTransform = player;
         }
 
@@ -58,6 +63,20 @@ namespace Voxels.Runtime
                 return;
             }
 
+            var data = BuildSaveData();
+            string folder = GetSaveFolder();
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, ManifestFileName), JsonUtility.ToJson(data, true));
+
+            WriteColumnFiles(folder, data);
+            WorldRegionSaveUtility.WriteRegionFiles(folder, data, settings);
+
+            hexWorld.ClearDirtyColumns();
+            UnityEngine.Debug.Log($"World saved to {folder} ({data.columns.Count} dirty columns).");
+        }
+
+        WorldSaveData BuildSaveData()
+        {
             var data = new WorldSaveData
             {
                 version = WorldSaveData.CurrentVersion,
@@ -94,22 +113,7 @@ namespace Voxels.Runtime
                 }
             }
 
-            string folder = GetSaveFolder();
-            Directory.CreateDirectory(folder);
-            string manifestPath = Path.Combine(folder, ManifestFileName);
-            File.WriteAllText(manifestPath, JsonUtility.ToJson(data, true));
-
-            string columnsFolder = Path.Combine(folder, "columns");
-            Directory.CreateDirectory(columnsFolder);
-            for (int i = 0; i < data.columns.Count; i++)
-            {
-                SavedColumn column = data.columns[i];
-                string columnPath = Path.Combine(columnsFolder, $"{column.q}_{column.r}.json");
-                File.WriteAllText(columnPath, JsonUtility.ToJson(column, true));
-            }
-
-            hexWorld.ClearDirtyColumns();
-            UnityEngine.Debug.Log($"World saved to {folder} ({data.columns.Count} dirty columns).");
+            return data;
         }
 
         public void Load()
@@ -119,7 +123,8 @@ namespace Voxels.Runtime
                 return;
             }
 
-            string manifestPath = Path.Combine(GetSaveFolder(), ManifestFileName);
+            string folder = GetSaveFolder();
+            string manifestPath = Path.Combine(folder, ManifestFileName);
             if (!File.Exists(manifestPath))
             {
                 UnityEngine.Debug.LogWarning($"No save at {manifestPath}");
@@ -132,11 +137,6 @@ namespace Voxels.Runtime
                 return;
             }
 
-            if (data.version < 2)
-            {
-                UnityEngine.Debug.LogWarning("Save version is outdated; re-save after loading in play mode.");
-            }
-
             if (data.seed != settings.Seed)
             {
                 UnityEngine.Debug.LogError(
@@ -144,10 +144,46 @@ namespace Voxels.Runtime
                 return;
             }
 
+            if (settings.InfiniteWorld)
+            {
+                WorldRegionSaveUtility.LoadRegionFiles(folder, data, hexWorld, settings);
+            }
+            else
+            {
+                LoadColumnFiles(folder, data);
+            }
+
             hexWorld.DataCache.Clear();
             hexWorld.ClearDirtyColumns();
 
-            string columnsFolder = Path.Combine(GetSaveFolder(), "columns");
+            for (int i = 0; i < data.columns.Count; i++)
+            {
+                ApplyColumn(data.columns[i]);
+            }
+
+            ApplyBiomes(data);
+            ApplyPlayerState(data);
+
+            chunkManager.ClearMeshesOnly();
+            chunkManager.RefreshAroundPlayer(forceRebuildMeshes: true);
+            UnityEngine.Debug.Log($"World loaded from {folder} ({data.columns.Count} columns).");
+        }
+
+        void WriteColumnFiles(string folder, WorldSaveData data)
+        {
+            string columnsFolder = Path.Combine(folder, ColumnsFolderName);
+            Directory.CreateDirectory(columnsFolder);
+            for (int i = 0; i < data.columns.Count; i++)
+            {
+                SavedColumn column = data.columns[i];
+                string columnPath = Path.Combine(columnsFolder, $"{column.q}_{column.r}.json");
+                File.WriteAllText(columnPath, JsonUtility.ToJson(column, true));
+            }
+        }
+
+        void LoadColumnFiles(string folder, WorldSaveData data)
+        {
+            string columnsFolder = Path.Combine(folder, ColumnsFolderName);
             for (int i = 0; i < data.columns.Count; i++)
             {
                 SavedColumn saved = data.columns[i];
@@ -155,11 +191,13 @@ namespace Voxels.Runtime
                 if (File.Exists(columnPath))
                 {
                     saved = JsonUtility.FromJson<SavedColumn>(File.ReadAllText(columnPath));
+                    data.columns[i] = saved;
                 }
-
-                ApplyColumn(saved);
             }
+        }
 
+        void ApplyBiomes(WorldSaveData data)
+        {
             for (int i = 0; i < data.biomes.Count; i++)
             {
                 SavedBiome savedBiome = data.biomes[i];
@@ -168,9 +206,13 @@ namespace Voxels.Runtime
                     settings.BiomeCatalog.TryGetBiomeByAssetName(savedBiome.biomeName, out BiomeDefinition biome))
                 {
                     hexWorld.SetBiome(hex, biome);
+                    hexWorld.MarkColumnDirty(hex);
                 }
             }
+        }
 
+        void ApplyPlayerState(WorldSaveData data)
+        {
             var playerHex = new HexCoord(data.playerQ, data.playerR);
             float3 playerOffset = FlatHexGrid.AxialToWorld(playerHex, settings.BlockSize);
             scroller.SetWorldHex(playerHex, playerOffset);
@@ -182,19 +224,8 @@ namespace Voxels.Runtime
                 playerTransform.position = pos;
             }
 
-            if (hotbar != null)
-            {
-                hotbar.SelectSlot(data.hotbarIndex);
-            }
-
-            if (toolState != null)
-            {
-                toolState.SetTool((PlayerToolMode)Mathf.Clamp(data.activeTool, 0, 2));
-            }
-
-            chunkManager.ClearMeshesOnly();
-            chunkManager.RefreshAroundPlayer(forceRebuildMeshes: true);
-            UnityEngine.Debug.Log($"World loaded from {GetSaveFolder()} ({data.columns.Count} columns).");
+            hotbar?.SelectSlot(data.hotbarIndex);
+            toolState?.SetTool((PlayerToolMode)Mathf.Clamp(data.activeTool, 0, 2));
         }
 
         void ApplyColumn(SavedColumn saved)
@@ -212,9 +243,11 @@ namespace Voxels.Runtime
             {
                 column.SetBlock(saved.blocks[b].layer, new BlockId(saved.blocks[b].blockId));
             }
+
+            hexWorld.MarkColumnDirty(hex);
         }
 
-        static SavedColumn SerializeColumn(in HexCoord hex, BlockColumn column)
+        SavedColumn SerializeColumn(in HexCoord hex, BlockColumn column)
         {
             var saved = new SavedColumn
             {

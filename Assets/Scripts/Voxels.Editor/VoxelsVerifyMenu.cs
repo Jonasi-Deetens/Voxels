@@ -25,16 +25,16 @@ namespace Voxels.EditorTools
         [MenuItem("Voxels/Verify Build Pipeline")]
         public static void VerifyBuildPipeline()
         {
-            WorldSettings settings = AssetDatabase.LoadAssetAtPath<WorldSettings>("Assets/Data/Planet_Default.asset");
+            WorldSettings settings = AssetDatabase.LoadAssetAtPath<WorldSettings>("Assets/Data/World_Default.asset");
             if (settings == null)
             {
-                Debug.LogError("Missing Assets/Data/Planet_Default.asset. Run Voxels/Setup Default Content first.");
+                Debug.LogError("Missing Assets/Data/World_Default.asset. Run Voxels/Setup Default Content first.");
                 return;
             }
 
             if (settings.BiomeCatalog == null)
             {
-                Debug.LogError("Planet_Default is missing BiomeCatalog. Run Voxels/Setup Default Content.");
+                Debug.LogError("World_Default is missing BiomeCatalog. Run Voxels/Setup Default Content.");
                 return;
             }
 

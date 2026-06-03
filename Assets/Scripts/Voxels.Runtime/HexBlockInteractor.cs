@@ -21,10 +21,15 @@ namespace Voxels.Runtime
         BlockHotbar hotbar;
         BlockEditFeedback feedback;
         PlayerToolState toolState;
+        PlayerInventory inventory;
 
         float breakTimer;
+        float breakDuration = 0.35f;
         HexBlockTarget breakTarget;
         bool breaking;
+
+        public float BreakProgress => breaking && breakDuration > 0f ? Mathf.Clamp01(breakTimer / breakDuration) : 0f;
+        public bool IsBreaking => breaking;
 
         public void Initialize(
             HexWorld world,
@@ -35,7 +40,8 @@ namespace Voxels.Runtime
             Transform player,
             BlockHotbar blockHotbar,
             BlockEditFeedback editFeedback,
-            PlayerToolState playerToolState)
+            PlayerToolState playerToolState,
+            PlayerInventory playerInventory)
         {
             hexWorld = world;
             settings = worldSettings;
@@ -46,6 +52,7 @@ namespace Voxels.Runtime
             hotbar = blockHotbar;
             feedback = editFeedback;
             toolState = playerToolState;
+            inventory = playerInventory;
         }
 
         void Update()
@@ -87,7 +94,7 @@ namespace Voxels.Runtime
 
         void UpdateBreaking()
         {
-            bool creative = PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
+            bool creative = IsCreative();
 
             if (GameInput.WasPrimaryPressedThisFrame())
             {
@@ -96,6 +103,7 @@ namespace Voxels.Runtime
                     breaking = true;
                     breakTarget = target;
                     breakTimer = 0f;
+                    RefreshBreakDuration();
                     if (creative)
                     {
                         CompleteBreak();
@@ -126,27 +134,25 @@ namespace Voxels.Runtime
                 return;
             }
 
+            breakTimer += Time.deltaTime;
+            if (breakTimer >= breakDuration)
+            {
+                CompleteBreak();
+            }
+        }
+
+        void RefreshBreakDuration()
+        {
+            breakDuration = 0.35f;
             if (!hexWorld.TryGetColumn(breakTarget.WorldHex, out BlockColumn column))
             {
-                breaking = false;
                 return;
             }
 
             BlockId existing = column.GetBlock(breakTarget.Layer);
-            if (existing.IsAir)
-            {
-                breaking = false;
-                return;
-            }
-
             hexWorld.BlockRegistry.TryGetDefinition(existing, out BlockDefinition definition);
             PlayerToolMode tool = toolState != null ? toolState.ActiveTool : PlayerToolMode.Hand;
-            float duration = BlockBreakCalculator.GetBreakDuration(definition, tool, false);
-            breakTimer += Time.deltaTime;
-            if (breakTimer >= duration)
-            {
-                CompleteBreak();
-            }
+            breakDuration = Mathf.Max(0.05f, BlockBreakCalculator.GetBreakDuration(definition, tool, false));
         }
 
         void CompleteBreak()
@@ -170,8 +176,7 @@ namespace Voxels.Runtime
                 return;
             }
 
-            bool creative = PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
-            if (!creative)
+            if (!IsCreative())
             {
                 if (!hexWorld.BlockRegistry.TryGetDefinition(existing, out BlockDefinition definition) ||
                     !definition.IsSolid)
@@ -185,6 +190,12 @@ namespace Voxels.Runtime
             hexWorld.MarkColumnDirty(breakTarget.WorldHex);
             chunkManager.RebuildChunksForWorldHex(breakTarget.WorldHex, scroller.PlayerWorldHex);
             feedback?.PlayBreak(GetBlockWorldPosition(breakTarget));
+
+            if (!existing.IsAir && inventory != null)
+            {
+                inventory.Add(existing);
+            }
+
             breaking = false;
         }
 
@@ -202,11 +213,12 @@ namespace Voxels.Runtime
             }
 
             hotbar.SelectBlock(blockId);
+            inventory?.Add(blockId);
         }
 
         void TryPlaceBlock(in HexBlockTarget target)
         {
-            bool creative = PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
+            bool creative = IsCreative();
             if (!HexBlockPlacement.CanPlace(hexWorld, settings, playerTransform, target, creative))
             {
                 return;
@@ -214,6 +226,11 @@ namespace Voxels.Runtime
 
             BlockId placeId = ResolvePlaceBlock();
             if (placeId.IsAir)
+            {
+                return;
+            }
+
+            if (!creative && inventory != null && !inventory.TryConsume(placeId))
             {
                 return;
             }
@@ -230,6 +247,9 @@ namespace Voxels.Runtime
             chunkManager.RebuildChunksForWorldHex(target.WorldHex, scroller.PlayerWorldHex);
             feedback?.PlayPlace(GetBlockWorldPosition(target));
         }
+
+        bool IsCreative() =>
+            PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
 
         bool TryGetTarget(bool placeMode, out HexBlockTarget target)
         {
