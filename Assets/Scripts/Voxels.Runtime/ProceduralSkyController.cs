@@ -4,7 +4,7 @@ using Voxels.World;
 namespace Voxels.Runtime
 {
     /// <summary>
-    /// Drives a procedural skybox tint/exposure from the celestial sun height.
+    /// Drives procedural skybox tint/exposure and optional distance fog from sun height.
     /// </summary>
     public sealed class ProceduralSkyController : MonoBehaviour
     {
@@ -15,15 +15,21 @@ namespace Voxels.Runtime
 
         [SerializeField] Color daySkyTint = new Color(0.52f, 0.72f, 1f, 1f);
         [SerializeField] Color nightSkyTint = new Color(0.02f, 0.04f, 0.12f, 1f);
+        [SerializeField] Color dayFogColor = new Color(0.62f, 0.78f, 0.95f, 1f);
+        [SerializeField] Color nightFogColor = new Color(0.03f, 0.05f, 0.1f, 1f);
         [SerializeField] float dayExposure = 1.15f;
         [SerializeField] float nightExposure = 0.35f;
+        [SerializeField] float dayFogDensity = 0.0018f;
+        [SerializeField] float nightFogDensity = 0.0035f;
 
         Material skyMaterial;
         CelestialSystem celestial;
+        WorldSettings settings;
 
-        public void Initialize(CelestialSystem celestialSystem)
+        public void Initialize(CelestialSystem celestialSystem, WorldSettings worldSettings)
         {
             celestial = celestialSystem;
+            settings = worldSettings;
             EnsureSkyMaterial();
         }
 
@@ -39,6 +45,14 @@ namespace Voxels.Runtime
             skyMaterial.SetFloat(ExposureId, Mathf.Lerp(nightExposure, dayExposure, sunHeight));
             skyMaterial.SetFloat(AtmosphereThicknessId, Mathf.Lerp(0.65f, 1.05f, sunHeight));
             skyMaterial.SetFloat(SunSizeId, Mathf.Lerp(0.02f, 0.05f, sunHeight));
+
+            if (settings != null && settings.EnableDistanceFog)
+            {
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.ExponentialSquared;
+                RenderSettings.fogColor = Color.Lerp(nightFogColor, dayFogColor, sunHeight);
+                RenderSettings.fogDensity = Mathf.Lerp(nightFogDensity, dayFogDensity, sunHeight);
+            }
         }
 
         void EnsureSkyMaterial()

@@ -61,6 +61,16 @@ namespace Voxels.Runtime
 #endif
         }
 
+        public static bool IsDescendHeld()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard keyboard = GetKeyboard();
+            return keyboard != null && (keyboard.leftCtrlKey.isPressed || keyboard.cKey.isPressed);
+#else
+            return Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C);
+#endif
+        }
+
         public static bool WasPrimaryPressedThisFrame()
         {
 #if ENABLE_INPUT_SYSTEM
@@ -81,13 +91,72 @@ namespace Voxels.Runtime
 #endif
         }
 
-        public static bool WasDebugTogglePressedThisFrame()
+        public static bool WasDebugTogglePressedThisFrame() => WasKeyPressed(KeyCode.F3);
+
+        public static bool WasCreativeTogglePressedThisFrame() => WasKeyPressed(KeyCode.F4);
+
+        public static bool WasSavePressedThisFrame() => WasKeyPressed(KeyCode.F5);
+
+        public static bool WasLoadPressedThisFrame() => WasKeyPressed(KeyCode.F6);
+
+        public static bool WasHotbarSlotPressed(int index)
+        {
+            if (index < 0 || index > 8)
+            {
+                return false;
+            }
+
+            KeyCode key = KeyCode.Alpha1 + index;
+            return WasKeyPressed(key) || WasKeyPressed(KeyCode.Keypad1 + index);
+        }
+
+        public static float ReadScrollDelta()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Mouse mouse = Mouse.current;
+            return mouse != null ? mouse.scroll.ReadValue().y : 0f;
+#else
+            return Input.mouseScrollDelta.y;
+#endif
+        }
+
+        static bool WasKeyPressed(KeyCode key)
         {
 #if ENABLE_INPUT_SYSTEM
             Keyboard keyboard = GetKeyboard();
-            return keyboard != null && keyboard.f3Key.wasPressedThisFrame;
+            if (keyboard == null)
+            {
+                return false;
+            }
+
+            return key switch
+            {
+                KeyCode.F3 => keyboard.f3Key.wasPressedThisFrame,
+                KeyCode.F4 => keyboard.f4Key.wasPressedThisFrame,
+                KeyCode.F5 => keyboard.f5Key.wasPressedThisFrame,
+                KeyCode.F6 => keyboard.f6Key.wasPressedThisFrame,
+                KeyCode.Alpha1 => keyboard.digit1Key.wasPressedThisFrame,
+                KeyCode.Alpha2 => keyboard.digit2Key.wasPressedThisFrame,
+                KeyCode.Alpha3 => keyboard.digit3Key.wasPressedThisFrame,
+                KeyCode.Alpha4 => keyboard.digit4Key.wasPressedThisFrame,
+                KeyCode.Alpha5 => keyboard.digit5Key.wasPressedThisFrame,
+                KeyCode.Alpha6 => keyboard.digit6Key.wasPressedThisFrame,
+                KeyCode.Alpha7 => keyboard.digit7Key.wasPressedThisFrame,
+                KeyCode.Alpha8 => keyboard.digit8Key.wasPressedThisFrame,
+                KeyCode.Alpha9 => keyboard.digit9Key.wasPressedThisFrame,
+                KeyCode.Keypad1 => keyboard.numpad1Key.wasPressedThisFrame,
+                KeyCode.Keypad2 => keyboard.numpad2Key.wasPressedThisFrame,
+                KeyCode.Keypad3 => keyboard.numpad3Key.wasPressedThisFrame,
+                KeyCode.Keypad4 => keyboard.numpad4Key.wasPressedThisFrame,
+                KeyCode.Keypad5 => keyboard.numpad5Key.wasPressedThisFrame,
+                KeyCode.Keypad6 => keyboard.numpad6Key.wasPressedThisFrame,
+                KeyCode.Keypad7 => keyboard.numpad7Key.wasPressedThisFrame,
+                KeyCode.Keypad8 => keyboard.numpad8Key.wasPressedThisFrame,
+                KeyCode.Keypad9 => keyboard.numpad9Key.wasPressedThisFrame,
+                _ => false,
+            };
 #else
-            return Input.GetKeyDown(KeyCode.F3);
+            return Input.GetKeyDown(key);
 #endif
         }
 

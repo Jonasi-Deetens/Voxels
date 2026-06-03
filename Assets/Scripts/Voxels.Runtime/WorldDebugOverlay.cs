@@ -6,12 +6,12 @@ namespace Voxels.Runtime
     public sealed class WorldDebugOverlay : MonoBehaviour
     {
         [SerializeField] bool visible = true;
-        [SerializeField] KeyCode toggleKey = KeyCode.F3;
 
         WorldScroller scroller;
         HexChunkManager chunkManager;
         CelestialSystem celestial;
         HexBlockInteractor interactor;
+        BlockHotbar hotbar;
 
         public bool Visible => visible;
 
@@ -19,12 +19,14 @@ namespace Voxels.Runtime
             WorldScroller worldScroller,
             HexChunkManager chunks,
             CelestialSystem celestialSystem,
-            HexBlockInteractor blockInteractor = null)
+            HexBlockInteractor blockInteractor = null,
+            BlockHotbar blockHotbar = null)
         {
             scroller = worldScroller;
             chunkManager = chunks;
             celestial = celestialSystem;
             interactor = blockInteractor;
+            hotbar = blockHotbar;
         }
 
         void Update()
@@ -43,9 +45,11 @@ namespace Voxels.Runtime
             }
 
             HexCoord hex = scroller.PlayerWorldHex;
-            GUILayout.BeginArea(new Rect(12f, 12f, 380f, 200f), GUI.skin.box);
-            GUILayout.Label("Debug (F3 to toggle)");
-            GUILayout.Label($"World hex: ({hex.Q}, {hex.R})");
+            bool creative = PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
+
+            GUILayout.BeginArea(new Rect(12f, 12f, 420f, 260f), GUI.skin.box);
+            GUILayout.Label("Debug (F3 toggle)");
+            GUILayout.Label($"World hex: ({hex.Q}, {hex.R})  creative: {creative}");
             if (scroller.HexWorld != null)
             {
                 GUILayout.Label($"Edge distance: {scroller.HexWorld.DistanceToEdge(hex)} hex");
@@ -62,11 +66,14 @@ namespace Voxels.Runtime
                 GUILayout.Label($"Time of day: {celestial.TimeOfDay:0.000}  sun height: {celestial.SunHeight:0.00}");
             }
 
-            if (interactor != null)
+            if (hotbar != null && scroller.HexWorld != null)
             {
-                GUILayout.Label("LMB break | RMB place block");
+                GUILayout.Label(
+                    $"Hotbar [{hotbar.SelectedIndex + 1}]: {hotbar.GetSlotLabel(hotbar.SelectedIndex, scroller.HexWorld.BlockRegistry)}");
             }
 
+            GUILayout.Label("LMB break | RMB place | 1-9 / scroll hotbar");
+            GUILayout.Label("F4 creative | F5 save | F6 load");
             GUILayout.EndArea();
         }
     }

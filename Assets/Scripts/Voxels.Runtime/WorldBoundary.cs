@@ -26,7 +26,7 @@ namespace Voxels.Runtime
             scroller = worldScroller;
             worldRoot = root != null ? root : worldRoot;
 
-            if (!settings.ShowWorldBoundary)
+            if (settings.InfiniteWorld || !settings.ShowWorldBoundary)
             {
                 return;
             }
@@ -36,7 +36,7 @@ namespace Voxels.Runtime
 
         void LateUpdate()
         {
-            if (scroller == null || settings == null)
+            if (scroller == null || settings == null || settings.InfiniteWorld)
             {
                 return;
             }

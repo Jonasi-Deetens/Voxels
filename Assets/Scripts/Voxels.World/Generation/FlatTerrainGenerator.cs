@@ -69,11 +69,13 @@ namespace Voxels.World.Generation
                 BiomeBlockIds blocks = BiomeBlockIds.FromBiome(cellBiome);
 
                 int columnBottom = math.max(0, surfaceHeight - settings.MaxDepthBelowSurface);
-                FillColumn(column, columnBottom, surfaceHeight, blocks, hex, cellBiome, seaLevel);
+                FillColumn(world, column, columnBottom, surfaceHeight, blocks, hex, cellBiome, seaLevel);
+                StructureGenerator.TryPlaceStructure(world, hex, column, settings, seed);
             }
         }
 
         void FillColumn(
+            HexWorld world,
             BlockColumn column,
             int columnBottom,
             int surfaceHeight,
@@ -98,6 +100,13 @@ namespace Voxels.World.Generation
                 blocks.Dirt,
                 blocks.Sand,
                 blocks.Bedrock);
+
+            if (surfaceHeight >= seaLevel && !column.IsAir(surfaceHeight))
+            {
+                BlockId blendedSurface = BiomeBorderBlender.ResolveSurfaceBlock(world, worldHex, biome);
+                column.SetBlock(surfaceHeight, blendedSurface);
+            }
+
             FillWater(column, surfaceHeight, seaLevel, blocks.Water);
 
             int skyTop = math.min(
@@ -192,7 +201,8 @@ namespace Voxels.World.Generation
             {
                 float3 sample = new float3(xz.x, layer * 0.11f, xz.y) * biome.CaveFrequency;
                 float caveNoise = noise.snoise(sample + SeedOffset(91));
-                if (caveNoise > biome.CaveThreshold)
+                float worm = noise.snoise(sample * 1.7f + SeedOffset(97));
+                if (caveNoise > biome.CaveThreshold && worm > -0.15f)
                 {
                     column.SetBlock(layer, BlockId.Air);
                 }

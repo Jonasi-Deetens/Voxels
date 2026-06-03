@@ -1,3 +1,4 @@
+using Unity.Mathematics;
 using UnityEngine;
 using Voxels.Core.Blocks;
 using Voxels.Core.Hex;
@@ -6,7 +7,7 @@ using Voxels.World;
 namespace Voxels.Runtime
 {
     /// <summary>
-    /// Left click breaks blocks; right click places biome surface blocks.
+    /// Left click breaks blocks; right click places the selected hotbar block.
     /// </summary>
     [DefaultExecutionOrder(60)]
     public sealed class HexBlockInteractor : MonoBehaviour
@@ -19,19 +20,28 @@ namespace Voxels.Runtime
         WorldScroller scroller;
         HexChunkManager chunkManager;
         Transform viewTransform;
+        Transform playerTransform;
+        BlockHotbar hotbar;
+        BlockEditFeedback feedback;
 
         public void Initialize(
             HexWorld world,
             WorldSettings worldSettings,
             WorldScroller worldScroller,
             HexChunkManager chunks,
-            Transform view)
+            Transform view,
+            Transform player,
+            BlockHotbar blockHotbar,
+            BlockEditFeedback editFeedback)
         {
             hexWorld = world;
             settings = worldSettings;
             scroller = worldScroller;
             chunkManager = chunks;
             viewTransform = view;
+            playerTransform = player;
+            hotbar = blockHotbar;
+            feedback = editFeedback;
         }
 
         void Update()
@@ -39,6 +49,15 @@ namespace Voxels.Runtime
             if (hexWorld == null || scroller == null || chunkManager == null || viewTransform == null)
             {
                 return;
+            }
+
+            if (GameInput.WasCreativeTogglePressedThisFrame())
+            {
+                PlayerGameplayState state = PlayerGameplayState.Instance;
+                if (state != null)
+                {
+                    state.ToggleCreativeMode();
+                }
             }
 
             if (!GameInput.WasPrimaryPressedThisFrame() && !GameInput.WasSecondaryPressedThisFrame())
@@ -97,37 +116,48 @@ namespace Voxels.Runtime
                 return;
             }
 
-            if (!hexWorld.BlockRegistry.TryGetDefinition(existing, out BlockDefinition definition) ||
-                !definition.IsSolid)
+            bool creative = PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
+            if (!creative)
             {
-                return;
+                if (!hexWorld.BlockRegistry.TryGetDefinition(existing, out BlockDefinition definition) ||
+                    !definition.IsSolid)
+                {
+                    return;
+                }
             }
 
             column.SetBlock(target.Layer, BlockId.Air);
             chunkManager.RebuildChunksForWorldHex(target.WorldHex, scroller.PlayerWorldHex);
+            feedback?.PlayBreak(GetBlockWorldPosition(target));
         }
 
         void TryPlaceBlock(in HexBlockTarget target)
         {
+            if (!HexBlockPlacement.CanPlace(hexWorld, settings, playerTransform, target))
+            {
+                return;
+            }
+
+            BlockId placeId = ResolvePlaceBlock();
+            if (placeId.IsAir)
+            {
+                return;
+            }
+
             BlockColumn column = hexWorld.GetOrCreateColumn(target.WorldHex);
-            if (!column.GetBlock(target.Layer).IsAir)
-            {
-                return;
-            }
-
-            if (target.Layer > column.SurfaceHeight + settings.MaxHeightAboveSurface)
-            {
-                return;
-            }
-
-            BlockId placeId = ResolvePlaceBlock(target.WorldHex);
             column.SetBlock(target.Layer, placeId);
             chunkManager.RebuildChunksForWorldHex(target.WorldHex, scroller.PlayerWorldHex);
+            feedback?.PlayPlace(GetBlockWorldPosition(target));
         }
 
-        BlockId ResolvePlaceBlock(in HexCoord worldHex)
+        BlockId ResolvePlaceBlock()
         {
-            BiomeDefinition biome = hexWorld.GetBiome(worldHex);
+            if (hotbar != null && !hotbar.SelectedBlock.IsAir)
+            {
+                return hotbar.SelectedBlock;
+            }
+
+            BiomeDefinition biome = hexWorld.GetBiome(scroller.PlayerWorldHex);
             if (biome != null && biome.SurfaceBlock != null)
             {
                 return biome.SurfaceBlock.BlockId;
@@ -139,6 +169,14 @@ namespace Voxels.Runtime
             }
 
             return new BlockId(2);
+        }
+
+        Vector3 GetBlockWorldPosition(in HexBlockTarget target)
+        {
+            float3 local = FlatHexGrid.AxialToWorld(target.WorldHex, settings.BlockSize);
+            local.y = (target.Layer + 0.5f) * settings.BlockSize;
+            Transform worldRoot = scroller.WorldRoot;
+            return worldRoot != null ? worldRoot.TransformPoint(local) : (Vector3)local;
         }
     }
 }

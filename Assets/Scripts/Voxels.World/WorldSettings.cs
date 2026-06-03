@@ -11,6 +11,7 @@ namespace Voxels.World
         [SerializeField] BiomeDefinition biome;
 
         [Header("Map")]
+        [SerializeField] bool infiniteWorld;
         [SerializeField] int worldHexRadius = 80;
         [SerializeField] float blockSize = 1f;
 
@@ -34,6 +35,13 @@ namespace Voxels.World
         [SerializeField] float moonAngularSize = 1.08f;
         [SerializeField] float moonOrbitPhaseOffset = 0.45f;
 
+        [Header("Structures")]
+        [SerializeField] float structureDensity = 0.06f;
+        [SerializeField] int treeTrunkHeight = 4;
+
+        [Header("Atmosphere")]
+        [SerializeField] bool enableDistanceFog = true;
+
         [Header("Build Performance")]
         [SerializeField] float buildFrameBudgetMs = 16f;
         [SerializeField] bool createTerrainColliders = true;
@@ -47,6 +55,7 @@ namespace Voxels.World
         public int Seed => seed;
         public BiomeCatalog BiomeCatalog => biomeCatalog;
         public BiomeDefinition Biome => biomeCatalog != null ? biomeCatalog.TerrainProfile : biome;
+        public bool InfiniteWorld => infiniteWorld;
         public int WorldHexRadius => worldHexRadius;
         public float BlockSize => blockSize;
         public int MaxDepthBelowSurface => maxDepthBelowSurface;
@@ -62,6 +71,9 @@ namespace Voxels.World
         public float SunAngularSize => sunAngularSize;
         public float MoonAngularSize => moonAngularSize;
         public float MoonOrbitPhaseOffset => moonOrbitPhaseOffset;
+        public float StructureDensity => structureDensity;
+        public int TreeTrunkHeight => treeTrunkHeight;
+        public bool EnableDistanceFog => enableDistanceFog;
         public float BuildFrameBudgetMs => buildFrameBudgetMs;
         public bool CreateTerrainColliders => createTerrainColliders;
         public float FloatingOriginRecenterDistance => floatingOriginRecenterDistance;

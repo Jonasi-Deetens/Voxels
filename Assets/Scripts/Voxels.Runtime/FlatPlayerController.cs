@@ -1,5 +1,6 @@
 using Unity.Mathematics;
 using UnityEngine;
+using Voxels.Core.Hex;
 using Voxels.World;
 
 namespace Voxels.Runtime
@@ -10,8 +11,12 @@ namespace Voxels.Runtime
     {
         [SerializeField] float moveSpeed = 5f;
         [SerializeField] float sprintMultiplier = 1.65f;
+        [SerializeField] float creativeSpeedMultiplier = 2.2f;
         [SerializeField] float jumpHeight = 1.15f;
         [SerializeField] float gravity = 24f;
+        [SerializeField] float coyoteTime = 0.12f;
+        [SerializeField] float jumpBufferTime = 0.12f;
+        [SerializeField] float creativeVerticalSpeed = 6f;
         [SerializeField] LayerMask groundMask = ~0;
 
         CharacterController controller;
@@ -20,6 +25,8 @@ namespace Voxels.Runtime
         HexChunkManager chunkManager;
         WorldSettings settings;
         float verticalVelocity;
+        float coyoteTimer;
+        float jumpBufferTimer;
         HexCoord lastNotifiedHex;
 
         public bool IsGrounded { get; private set; }
@@ -66,7 +73,15 @@ namespace Voxels.Runtime
             }
 
             Vector3 positionBefore = transform.position;
-            HandleMovement();
+            if (IsCreativeMode())
+            {
+                HandleCreativeMovement();
+            }
+            else
+            {
+                HandleSurvivalMovement();
+            }
+
             Vector3 displacement = transform.position - positionBefore;
             if (scroller != null)
             {
@@ -76,34 +91,81 @@ namespace Voxels.Runtime
             NotifyHexChange();
         }
 
-        void NotifyHexChange()
+        bool IsCreativeMode() =>
+            PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode;
+
+        void HandleCreativeMovement()
         {
-            if (scroller == null || chunkManager == null)
+            IsGrounded = false;
+            verticalVelocity = 0f;
+
+            if (GameInput.WasJumpPressed())
             {
-                return;
+                verticalVelocity = creativeVerticalSpeed;
+            }
+            else if (GameInput.IsDescendHeld())
+            {
+                verticalVelocity = -creativeVerticalSpeed;
             }
 
-            HexCoord hex = scroller.PlayerWorldHex;
-            if (hex == lastNotifiedHex)
+            Vector2 input = GameInput.ReadMoveAxes();
+            Vector3 move = Vector3.up * verticalVelocity;
+            if (input.sqrMagnitude > 0.0001f)
             {
-                return;
+                Transform facing = viewTransform != null ? viewTransform : transform;
+                input = Vector2.ClampMagnitude(input, 1f);
+                Vector3 forward = Vector3.ProjectOnPlane(facing.forward, Vector3.up).normalized;
+                Vector3 right = Vector3.Cross(Vector3.up, forward);
+                float speed = moveSpeed * creativeSpeedMultiplier *
+                    (GameInput.IsSprintHeld() ? sprintMultiplier : 1f);
+                move += (forward * input.y + right * input.x) * speed;
             }
 
-            lastNotifiedHex = hex;
-            chunkManager.RefreshAroundPlayer();
+            controller.Move(move * Time.deltaTime);
         }
 
-        void HandleMovement()
+        void HandleSurvivalMovement()
         {
+            bool wasGrounded = IsGrounded;
             IsGrounded = controller.isGrounded;
-            if (IsGrounded && verticalVelocity < 0f)
+
+            if (IsGrounded)
             {
-                verticalVelocity = -2f;
+                coyoteTimer = coyoteTime;
+                if (verticalVelocity < 0f)
+                {
+                    verticalVelocity = -2f;
+                }
+
+                if (jumpBufferTimer > 0f)
+                {
+                    verticalVelocity = math.sqrt(jumpHeight * 2f * gravity);
+                    jumpBufferTimer = 0f;
+                }
+            }
+            else if (wasGrounded)
+            {
+                coyoteTimer = coyoteTime;
+            }
+            else
+            {
+                coyoteTimer = math.max(0f, coyoteTimer - Time.deltaTime);
             }
 
-            if (IsGrounded && GameInput.WasJumpPressed())
+            if (GameInput.WasJumpPressed())
+            {
+                jumpBufferTimer = jumpBufferTime;
+            }
+            else
+            {
+                jumpBufferTimer = math.max(0f, jumpBufferTimer - Time.deltaTime);
+            }
+
+            if (coyoteTimer > 0f && jumpBufferTimer > 0f)
             {
                 verticalVelocity = math.sqrt(jumpHeight * 2f * gravity);
+                jumpBufferTimer = 0f;
+                coyoteTimer = 0f;
             }
 
             verticalVelocity -= gravity * Time.deltaTime;
@@ -122,6 +184,23 @@ namespace Voxels.Runtime
 
             move.y = verticalVelocity;
             controller.Move(move * Time.deltaTime);
+        }
+
+        void NotifyHexChange()
+        {
+            if (scroller == null || chunkManager == null)
+            {
+                return;
+            }
+
+            HexCoord hex = scroller.PlayerWorldHex;
+            if (hex == lastNotifiedHex)
+            {
+                return;
+            }
+
+            lastNotifiedHex = hex;
+            chunkManager.RefreshAroundPlayer();
         }
 
         public void SnapToGround()

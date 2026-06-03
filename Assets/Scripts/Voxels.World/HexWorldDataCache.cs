@@ -87,6 +87,14 @@ namespace Voxels.World
 
         public bool HasColumn(in HexCoord hex) => entries.ContainsKey(hex);
 
+        public IEnumerable<KeyValuePair<HexCoord, BlockColumn>> EnumerateColumns()
+        {
+            foreach (KeyValuePair<HexCoord, CacheEntry> entry in entries)
+            {
+                yield return new KeyValuePair<HexCoord, BlockColumn>(entry.Key, entry.Value.Column);
+            }
+        }
+
         public void TrimUnprotected(HashSet<HexCoord> protectedHexes)
         {
             int evictionSafety = entries.Count + 8;

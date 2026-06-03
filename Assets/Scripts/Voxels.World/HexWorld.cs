@@ -39,10 +39,10 @@ namespace Voxels.World
         public HexCoord WorldToLocal(in HexCoord worldHex, in HexCoord playerHex) => worldHex.Subtract(playerHex);
 
         public bool IsInsideWorld(in HexCoord worldHex) =>
-            HexagonMask.IsInsideWorld(worldHex, settings.WorldHexRadius);
+            settings.InfiniteWorld || HexagonMask.IsInsideWorld(worldHex, settings.WorldHexRadius);
 
         public int DistanceToEdge(in HexCoord worldHex) =>
-            settings.WorldHexRadius - HexagonMask.DistanceFromCenter(worldHex);
+            settings.InfiniteWorld ? int.MaxValue : settings.WorldHexRadius - HexagonMask.DistanceFromCenter(worldHex);
 
         public float LayerToWorldY(int layer) => layer * settings.BlockSize;
 
