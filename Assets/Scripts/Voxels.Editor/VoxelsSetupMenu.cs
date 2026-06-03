@@ -131,32 +131,37 @@ namespace Voxels.EditorTools
 
             catalogObject.ApplyModifiedPropertiesWithoutUndo();
 
-            WorldSettings planet = CreateOrLoad<WorldSettings>("Assets/Data/World_Default.asset");
-            SerializedObject planetObject = new SerializedObject(planet);
-            planetObject.FindProperty("worldHexRadius").intValue = 80;
-            planetObject.FindProperty("seed").intValue = 42;
-            planetObject.FindProperty("biomeCatalog").objectReferenceValue = catalog;
-            planetObject.FindProperty("biome").objectReferenceValue = grassland;
-            planetObject.FindProperty("blockSize").floatValue = 1f;
-            planetObject.FindProperty("maxDepthBelowSurface").intValue = 80;
-            planetObject.FindProperty("maxHeightAboveSurface").intValue = 30;
-            planetObject.FindProperty("seaLevelLayer").intValue = 72;
-            planetObject.FindProperty("chunkSizeHex").intValue = 16;
-            planetObject.FindProperty("viewRadiusChunks").intValue = 3;
-            planetObject.FindProperty("playerEyeHeight").floatValue = 1.7f;
-            planetObject.FindProperty("playerHeight").floatValue = 2f;
-            planetObject.FindProperty("dayLengthSeconds").floatValue = 900f;
-            planetObject.FindProperty("orbitRadiusMultiplier").floatValue = 4f;
-            planetObject.FindProperty("sunAngularSize").floatValue = 2.4f;
-            planetObject.FindProperty("moonAngularSize").floatValue = 1.08f;
-            planetObject.FindProperty("moonOrbitPhaseOffset").floatValue = 0.45f;
-            planetObject.FindProperty("buildFrameBudgetMs").floatValue = 16f;
-            planetObject.FindProperty("createTerrainColliders").boolValue = true;
-            planetObject.ApplyModifiedPropertiesWithoutUndo();
+            WorldSettings world = CreateOrLoad<WorldSettings>("Assets/Data/Planet_Default.asset");
+            SerializedObject worldObject = new SerializedObject(world);
+            worldObject.FindProperty("seed").intValue = 42;
+            worldObject.FindProperty("biomeCatalog").objectReferenceValue = catalog;
+            worldObject.FindProperty("biome").objectReferenceValue = grassland;
+            worldObject.FindProperty("worldHexRadius").intValue = 80;
+            worldObject.FindProperty("blockSize").floatValue = 1f;
+            worldObject.FindProperty("maxDepthBelowSurface").intValue = 80;
+            worldObject.FindProperty("maxHeightAboveSurface").intValue = 30;
+            worldObject.FindProperty("seaLevelLayer").intValue = 72;
+            worldObject.FindProperty("chunkSizeHex").intValue = 16;
+            worldObject.FindProperty("viewRadiusChunks").intValue = 3;
+            worldObject.FindProperty("playerEyeHeight").floatValue = 1.7f;
+            worldObject.FindProperty("playerHeight").floatValue = 2f;
+            worldObject.FindProperty("dayLengthSeconds").floatValue = 900f;
+            worldObject.FindProperty("orbitRadiusMultiplier").floatValue = 4f;
+            worldObject.FindProperty("sunAngularSize").floatValue = 2.4f;
+            worldObject.FindProperty("moonAngularSize").floatValue = 1.08f;
+            worldObject.FindProperty("moonOrbitPhaseOffset").floatValue = 0.45f;
+            worldObject.FindProperty("buildFrameBudgetMs").floatValue = 16f;
+            worldObject.FindProperty("createTerrainColliders").boolValue = true;
+            worldObject.FindProperty("floatingOriginRecenterDistance").floatValue = 1000f;
+            worldObject.FindProperty("columnCacheMaxCells").intValue = 8192;
+            worldObject.FindProperty("chunkMeshPadding").intValue = 1;
+            worldObject.FindProperty("showWorldBoundary").boolValue = true;
+            worldObject.FindProperty("boundaryWallHeight").floatValue = 96f;
+            worldObject.ApplyModifiedPropertiesWithoutUndo();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("Voxels default content created: 13 biomes, BiomeCatalog, hexRadius=80, streaming chunks.");
+            Debug.Log("Voxels default content created: 13 biomes, flat world settings (hexRadius=80).");
         }
 
         [MenuItem("Voxels/Setup Sample Scene")]
@@ -167,7 +172,7 @@ namespace Voxels.EditorTools
             Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
             SetupWorldInScene(scene);
             EditorSceneManager.SaveScene(scene);
-            Debug.Log("Sample scene configured with flat hex world, loading overlay, and surface camera.");
+            Debug.Log("Sample scene configured with flat hex world.");
         }
 
         static void SetupWorldInScene(Scene scene)
@@ -193,7 +198,7 @@ namespace Voxels.EditorTools
                 chunkRoot = chunkRootObject.transform;
             }
 
-            WorldSettings settings = AssetDatabase.LoadAssetAtPath<WorldSettings>("Assets/Data/World_Default.asset");
+            WorldSettings settings = AssetDatabase.LoadAssetAtPath<WorldSettings>("Assets/Data/Planet_Default.asset");
             BlockDefinition[] blocks =
             {
                 AssetDatabase.LoadAssetAtPath<BlockDefinition>("Assets/Data/Blocks/Block_Grass.asset"),
