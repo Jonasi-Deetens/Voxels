@@ -29,6 +29,7 @@ namespace Voxels.Runtime
         PlayerToolState toolState;
         WorldRuntimeProfiler runtimeProfiler;
         GameHudView gameHud;
+        HexSkyCloudController skyClouds;
         BlockEditFeedback blockFeedback;
         Transform worldRootTransform;
         bool buildComplete;
@@ -100,6 +101,7 @@ namespace Voxels.Runtime
             toolState = GetOrAdd<PlayerToolState>();
             runtimeProfiler = GetOrAdd<WorldRuntimeProfiler>();
             gameHud = GetOrAdd<GameHudView>();
+            skyClouds = GetOrAdd<HexSkyCloudController>();
             GetOrAdd<PlayerGameplayState>();
             PlayerInventory playerInventory = GetOrAdd<PlayerInventory>();
             WorldRegionLoader regionLoader = GetOrAdd<WorldRegionLoader>();
@@ -136,6 +138,7 @@ namespace Voxels.Runtime
             worldBoundary.Initialize(settings, worldScroller, worldRootTransform);
             SetupCelestial(player);
             skyController.Initialize(celestialSystem, settings);
+            skyClouds.Initialize(celestialSystem, settings, player);
             blockFeedback = BlockEditFeedback.Ensure(transform);
             blockInteractor.Initialize(
                 hexWorld,
