@@ -284,12 +284,13 @@ namespace Voxels.World.Generation
             return FlatHexGrid.AxialToWorld(worldHex, world.BlockSize).xz;
         }
 
-        float2 SeedOffset(int salt)
+        float3 SeedOffset(int salt)
         {
             uint hash = math.hash(new int3((int)seed, salt, 0));
-            return new float2(
+            return new float3(
                 (hash & 0xFF) / 255f * 100f,
-                ((hash >> 8) & 0xFF) / 255f * 100f);
+                ((hash >> 8) & 0xFF) / 255f * 100f,
+                ((hash >> 16) & 0xFF) / 255f * 100f);
         }
     }
 }
