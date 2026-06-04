@@ -47,7 +47,7 @@ namespace Voxels.Rendering
             return hexes;
         }
 
-        public static IEnumerable<ChunkCoord> EnumerateChunksAround(in HexCoord worldHex, int viewRadiusChunks, int chunkSizeHex)
+        public static IEnumerable<ChunkCoord> EnumerateChunksAround(HexCoord worldHex, int viewRadiusChunks, int chunkSizeHex)
         {
             ChunkCoord center = ChunkCoord.FromHex(worldHex, chunkSizeHex);
             for (int dq = -viewRadiusChunks; dq <= viewRadiusChunks; dq++)
