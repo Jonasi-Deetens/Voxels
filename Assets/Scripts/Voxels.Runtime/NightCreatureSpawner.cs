@@ -151,8 +151,15 @@ namespace Voxels.Runtime
     {
       if (player != null && other.transform == player)
       {
-        PlayerHealth health = player.GetComponent<PlayerHealth>();
-        health?.TakeDamage(damage * Time.deltaTime);
+        PlayerStatsController stats = player.GetComponent<PlayerStatsController>();
+        if (stats != null)
+        {
+            stats.ApplyDamage(damage * Time.deltaTime);
+        }
+        else
+        {
+            player.GetComponent<PlayerHealth>()?.TakeDamage(damage * Time.deltaTime);
+        }
       }
     }
 

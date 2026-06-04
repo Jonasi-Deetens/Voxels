@@ -4,7 +4,11 @@ namespace Voxels.Runtime
 {
     public static class BlockBreakCalculator
     {
-        public static float GetBreakDuration(BlockDefinition block, PlayerToolMode tool, bool creative)
+        public static float GetBreakDuration(
+            BlockDefinition block,
+            PlayerToolMode tool,
+            bool creative,
+            float miningMultiplier = 1f)
         {
             if (creative || block == null)
             {
@@ -52,7 +56,7 @@ namespace Voxels.Runtime
                     break;
             }
 
-            return baseTime * multiplier;
+            return PlayerStatsRules.ApplyMiningSpeed(baseTime * multiplier, miningMultiplier);
         }
     }
 }

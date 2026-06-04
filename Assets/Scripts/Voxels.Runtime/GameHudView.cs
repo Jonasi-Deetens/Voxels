@@ -28,6 +28,10 @@ namespace Voxels.Runtime
     Image crosshairImage;
     Image debugPanel;
     Image[] hotbarPanels;
+    PlayerStatsController playerStats;
+    Image healthBarFill;
+    Image staminaBarFill;
+    Image hungerBarFill;
 
     const int MinimapSize = 25;
 
@@ -40,7 +44,8 @@ namespace Voxels.Runtime
       WorldRuntimeProfiler runtimeProfiler,
       WorldSettings worldSettings,
       HexBlockInteractor interactor = null,
-      PlayerInventory playerInventory = null)
+      PlayerInventory playerInventory = null,
+      PlayerStatsController stats = null)
     {
       scroller = worldScroller;
       chunkManager = chunks;
@@ -51,6 +56,7 @@ namespace Voxels.Runtime
       settings = worldSettings;
       blockInteractor = interactor;
       inventory = playerInventory;
+      playerStats = stats;
       EnsureUi();
     }
 
@@ -155,7 +161,19 @@ namespace Voxels.Runtime
         hotbarLabels[i].transform.SetAsLastSibling();
       }
 
-      crosshairImage = CreatePanel(canvasObject.transform, "Crosshair", new Color(1f, 1f, 1f, 0.85f));
+      var statBarRoot = new GameObject("StatBars", typeof(RectTransform));
+      statBarRoot.transform.SetParent(canvasObject.transform, false);
+      var statBarRect = statBarRoot.GetComponent<RectTransform>();
+      statBarRect.anchorMin = new Vector2(0f, 1f);
+      statBarRect.anchorMax = new Vector2(0f, 1f);
+      statBarRect.pivot = new Vector2(0f, 1f);
+      statBarRect.anchoredPosition = new Vector2(12f, -240f);
+      statBarRect.sizeDelta = new Vector2(180f, 52f);
+      healthBarFill = CreateStatBar(statBarRoot.transform, "Health", new Color(0.85f, 0.2f, 0.2f), 0f);
+      staminaBarFill = CreateStatBar(statBarRoot.transform, "Stamina", new Color(0.95f, 0.85f, 0.2f), -18f);
+      hungerBarFill = CreateStatBar(statBarRoot.transform, "Hunger", new Color(0.45f, 0.75f, 0.35f), -36f);
+
+            crosshairImage = CreatePanel(canvasObject.transform, "Crosshair", new Color(1f, 1f, 1f, 0.85f));
       var crossRect = crosshairImage.rectTransform;
       crossRect.anchorMin = crossRect.anchorMax = new Vector2(0.5f, 0.5f);
       crossRect.sizeDelta = new Vector2(10f, 10f);
@@ -199,6 +217,7 @@ namespace Voxels.Runtime
         return;
       }
 
+      UpdateStatBars();
       UpdateHotbar();
       UpdateBreakBar();
       if (showDebug)
@@ -214,6 +233,48 @@ namespace Voxels.Runtime
       {
         UpdateMinimap();
       }
+    }
+
+    void UpdateStatBars()
+    {
+      if (playerStats == null || (PlayerGameplayState.Instance != null && PlayerGameplayState.Instance.CreativeMode))
+      {
+        return;
+      }
+
+      SetBarFill(healthBarFill, playerStats.GetNormalized(StatId.Health));
+      SetBarFill(staminaBarFill, playerStats.GetNormalized(StatId.Stamina));
+      SetBarFill(hungerBarFill, playerStats.GetNormalized(StatId.Hunger));
+    }
+
+    static void SetBarFill(Image fill, float normalized)
+    {
+      if (fill == null)
+      {
+        return;
+      }
+
+      var rect = fill.rectTransform;
+      rect.anchorMax = new Vector2(Mathf.Clamp01(normalized), 1f);
+    }
+
+    static Image CreateStatBar(Transform parent, string label, Color color, float yOffset)
+    {
+      var bg = CreatePanel(parent, label + "Bg", new Color(0f, 0f, 0f, 0.55f));
+      var bgRect = bg.rectTransform;
+      bgRect.anchorMin = new Vector2(0f, 1f);
+      bgRect.anchorMax = new Vector2(1f, 1f);
+      bgRect.pivot = new Vector2(0f, 1f);
+      bgRect.anchoredPosition = new Vector2(0f, yOffset);
+      bgRect.sizeDelta = new Vector2(0f, 14f);
+
+      var fill = CreatePanel(bg.transform, label + "Fill", color);
+      var fillRect = fill.rectTransform;
+      fillRect.anchorMin = Vector2.zero;
+      fillRect.anchorMax = Vector2.one;
+      fillRect.offsetMin = new Vector2(2f, 2f);
+      fillRect.offsetMax = new Vector2(-2f, -2f);
+      return fill;
     }
 
     void UpdateHotbar()
@@ -259,8 +320,10 @@ namespace Voxels.Runtime
       int light = dayNight != null ? dayNight.LightLevel : 15;
       WeatherSystem weather = FindAnyObjectByType<WeatherSystem>();
       string weatherLine = weather != null ? $"Weather {weather.Snapshot.Kind}  precip {weather.Snapshot.Precipitation:0.00}" : string.Empty;
-      PlayerHealth playerHealth = FindAnyObjectByType<PlayerHealth>();
-      string healthLine = playerHealth != null ? $"Health {playerHealth.Health:0}/{playerHealth.MaxHealth:0}" : string.Empty;
+      PlayerStatsController debugStats = playerStats != null ? playerStats : FindAnyObjectByType<PlayerStatsController>();
+      string healthLine = debugStats != null
+        ? $"HP {debugStats.GetCurrent(StatId.Health):0}/{debugStats.GetMax(StatId.Health):0}  ST {debugStats.GetCurrent(StatId.Stamina):0}  Food {debugStats.GetCurrent(StatId.Hunger):0}  Def {debugStats.GetDefensePercent() * 100f:0}%  Mine x{debugStats.GetMiningMultiplier():0.00}"
+        : string.Empty;
 
       debugText.text =
         $"Debug (F3)\n" +
@@ -271,7 +334,7 @@ namespace Voxels.Runtime
         $"{healthLine}\n" +
         $"{weatherLine}\n" +
         $"{perf}\n" +
-        $"LMB break | RMB place | MMB pick | T tool | G craft | F5/F6 save";
+        $"LMB break | RMB place | MMB pick | T tool | G craft | E eat | F5/F6 save";
     }
 
     void UpdateBreakBar()

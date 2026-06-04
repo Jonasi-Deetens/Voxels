@@ -32,23 +32,23 @@ namespace Voxels.Tests
         }
 
         [Test]
-        public void Version3_includes_weather_and_health()
+        public void Version4_includes_all_survival_stats()
         {
             var data = new WorldSaveData
             {
-                version = 3,
-                weatherKind = 2,
-                weatherTargetKind = 4,
-                weatherTransition = 0.5f,
-                playerHealth = 14f,
+                version = 4,
+                playerHealth = 12f,
+                playerStamina = 40f,
+                playerHunger = 55f,
+                playerBreath = 80f,
             };
 
             WorldSaveData loaded = JsonUtility.FromJson<WorldSaveData>(JsonUtility.ToJson(data));
-            Assert.AreEqual(3, loaded.version);
-            Assert.AreEqual(2, loaded.weatherKind);
-            Assert.AreEqual(4, loaded.weatherTargetKind);
-            Assert.AreEqual(0.5f, loaded.weatherTransition, 0.001f);
-            Assert.AreEqual(14f, loaded.playerHealth, 0.001f);
+            Assert.AreEqual(4, loaded.version);
+            Assert.AreEqual(12f, loaded.playerHealth, 0.001f);
+            Assert.AreEqual(40f, loaded.playerStamina, 0.001f);
+            Assert.AreEqual(55f, loaded.playerHunger, 0.001f);
+            Assert.AreEqual(80f, loaded.playerBreath, 0.001f);
         }
     }
 }

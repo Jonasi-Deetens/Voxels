@@ -23,6 +23,7 @@ namespace Voxels.Runtime
         BlockEditFeedback feedback;
         PlayerToolState toolState;
         PlayerInventory inventory;
+        PlayerStatsController playerStats;
 
         float breakTimer;
         float breakDuration = 0.35f;
@@ -43,7 +44,8 @@ namespace Voxels.Runtime
             BlockHotbar blockHotbar,
             BlockEditFeedback editFeedback,
             PlayerToolState playerToolState,
-            PlayerInventory playerInventory)
+            PlayerInventory playerInventory,
+            PlayerStatsController stats = null)
         {
             hexWorld = world;
             settings = worldSettings;
@@ -55,6 +57,7 @@ namespace Voxels.Runtime
             feedback = editFeedback;
             toolState = playerToolState;
             inventory = playerInventory;
+            playerStats = stats;
         }
 
         void Update()
@@ -74,6 +77,11 @@ namespace Voxels.Runtime
                 {
                     state.ToggleCreativeMode();
                 }
+            }
+
+            if (GameInput.WasEatPressedThisFrame() && hotbar != null && inventory != null && playerStats != null)
+            {
+                PlayerFoodUtility.TryEatFromHotbar(hotbar, inventory, hexWorld.BlockRegistry, playerStats);
             }
 
             if (GameInput.WasCycleToolPressedThisFrame() && toolState != null)
@@ -161,7 +169,8 @@ namespace Voxels.Runtime
             BlockId existing = column.GetBlock(breakTarget.Layer);
             hexWorld.BlockRegistry.TryGetDefinition(existing, out BlockDefinition definition);
             PlayerToolMode tool = toolState != null ? toolState.ActiveTool : PlayerToolMode.Hand;
-            breakDuration = Mathf.Max(0.05f, BlockBreakCalculator.GetBreakDuration(definition, tool, false));
+            float mining = playerStats != null ? playerStats.GetMiningMultiplier() : 1f;
+            breakDuration = Mathf.Max(0.05f, BlockBreakCalculator.GetBreakDuration(definition, tool, false, mining));
         }
 
         void CompleteBreak()

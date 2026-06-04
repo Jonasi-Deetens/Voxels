@@ -32,6 +32,7 @@ namespace Voxels.Runtime
         float transitionProgress = 1f;
         BiomeDefinition lastBiome;
         Random weatherRandom;
+        PlayerStatsController playerStats;
 
         public WeatherSnapshot Snapshot => snapshot;
 
@@ -45,7 +46,8 @@ namespace Voxels.Runtime
             ProceduralSkyController proceduralSky,
             BiomeAmbienceController ambience,
             WeatherParticleController weatherParticles,
-            WeatherAudioController audioController = null)
+            WeatherAudioController audioController = null,
+            PlayerStatsController statsController = null)
         {
             Instance = this;
             scroller = worldScroller;
@@ -56,6 +58,7 @@ namespace Voxels.Runtime
             biomeAmbience = ambience;
             particles = weatherParticles;
             weatherAudio = audioController;
+            playerStats = statsController;
             climateSampler = new FlatClimateSampler(worldSettings);
             weatherRandom = new Random((uint)math.max(1, worldSettings.Seed) ^ 0x9E47A1C5u);
             changeTimer = weatherRandom.NextFloat(changeIntervalSeconds.x, changeIntervalSeconds.y);
@@ -156,6 +159,7 @@ namespace Voxels.Runtime
             skyController?.ApplyWeather(snapshot);
             particles?.ApplyWeather(snapshot);
             biomeAmbience?.ApplyWeatherVolume(ambientVolume);
+            playerStats?.ApplyWeatherHungerMultiplier(snapshot);
             weatherAudio?.ApplyWeather(snapshot);
         }
 

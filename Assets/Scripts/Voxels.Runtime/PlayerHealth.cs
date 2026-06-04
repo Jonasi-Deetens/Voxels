@@ -2,39 +2,29 @@ using UnityEngine;
 
 namespace Voxels.Runtime
 {
+    /// <summary>Compatibility facade; health is owned by <see cref="PlayerStatsController"/>.</summary>
     public sealed class PlayerHealth : MonoBehaviour
     {
-        [SerializeField] float maxHealth = 20f;
-        float health;
-        float invulnTimer;
+        PlayerStatsController stats;
 
-        public float Health => health;
-        public float MaxHealth => maxHealth;
-        public float Normalized => maxHealth > 0f ? health / maxHealth : 0f;
+        void Awake() => stats = GetComponent<PlayerStatsController>();
 
-        void Awake() => health = maxHealth;
+        public float Health => stats != null ? stats.GetCurrent(StatId.Health) : 0f;
+        public float MaxHealth => stats != null ? stats.GetMax(StatId.Health) : 20f;
+        public float Normalized => stats != null ? stats.GetNormalized(StatId.Health) : 0f;
 
-        public void Restore(float amount) => health = Mathf.Min(maxHealth, health + amount);
+        public void Restore(float amount) => stats?.Add(StatId.Health, amount);
 
-        public void SetHealth(float value) => health = Mathf.Clamp(value, 0f, maxHealth);
-
-        public void TakeDamage(float amount)
+        public void SetHealth(float value)
         {
-            if (amount <= 0f || invulnTimer > 0f)
+            if (stats == null)
             {
                 return;
             }
 
-            health = Mathf.Max(0f, health - amount);
-            invulnTimer = 0.75f;
+            stats.RestoreFromSave(value, stats.GetCurrent(StatId.Stamina), stats.GetCurrent(StatId.Hunger), stats.GetCurrent(StatId.Breath));
         }
 
-        void Update()
-        {
-            if (invulnTimer > 0f)
-            {
-                invulnTimer -= Time.deltaTime;
-            }
-        }
+        public void TakeDamage(float amount) => stats?.ApplyDamage(amount);
     }
 }
