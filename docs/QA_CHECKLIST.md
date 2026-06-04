@@ -21,6 +21,15 @@ Run in Unity 6 (`6000.4.x`) after pulling the branch. Play **SampleScene** with 
 - [ ] Break a block, F5 save, F6 load — block stays broken
 - [ ] Weather and player position restore after load (manifest v3)
 
+## Stats (survival)
+- [ ] Health / stamina / hunger bars visible (hidden in creative)
+- [ ] Sprint drains stamina; regen when idle
+- [ ] Hunger drains over time; **E** eats fungus/grass from hotbar
+- [ ] Deep water drains breath; drowning damage at 0
+- [ ] Night creatures deal damage; health regens when fed and safe
+- [ ] Death respawns at world spawn with partial health
+- [ ] F5/F6 preserves health, stamina, hunger, breath (save v4)
+
 ## Tools (T cycles)
 - [ ] Wooden / stone / iron pickaxe speeds on stone
 - [ ] Shovel speeds on dirt/sand
