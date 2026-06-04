@@ -50,6 +50,15 @@ namespace Voxels.World.Generation
                 case PoiKind.Rock:
                     PlaceRock(column, surfaceHeight, settings, biome);
                     break;
+                case PoiKind.CrystalSpire:
+                    PlaceCrystalSpire(column, surfaceHeight, settings, biome);
+                    break;
+                case PoiKind.CampSite:
+                    PlaceCampSite(column, surfaceHeight, settings, biome);
+                    break;
+                case PoiKind.FungalRing:
+                    PlaceFungalRing(column, surfaceHeight, settings, biome);
+                    break;
                 case PoiKind.Pine:
                     PlacePine(column, surfaceHeight, settings, biome);
                     break;
@@ -68,6 +77,9 @@ namespace Voxels.World.Generation
             MushroomCluster,
             DeadTree,
             BoulderPatch,
+            CrystalSpire,
+            CampSite,
+            FungalRing,
         }
 
         static PoiKind ResolvePoiKind(BiomeDefinition biome, in HexCoord hex, uint seed)
@@ -77,7 +89,8 @@ namespace Voxels.World.Generation
 
             if (name.Contains("fungal") || name.Contains("swamp"))
             {
-                return variant < 0.55f ? PoiKind.MushroomCluster : PoiKind.DeadTree;
+                if (variant < 0.35f) return PoiKind.FungalRing;
+                return variant < 0.7f ? PoiKind.MushroomCluster : PoiKind.DeadTree;
             }
 
             if (name.Contains("desert") || name.Contains("savanna"))
@@ -87,7 +100,8 @@ namespace Voxels.World.Generation
 
             if (name.Contains("alpine") || name.Contains("tundra") || name.Contains("crystal"))
             {
-                return variant < 0.65f ? PoiKind.Rock : PoiKind.BoulderPatch;
+                if (variant < 0.4f) return PoiKind.CrystalSpire;
+                return variant < 0.75f ? PoiKind.Rock : PoiKind.BoulderPatch;
             }
 
             if (name.Contains("taiga") || name.Contains("forest"))
@@ -97,10 +111,11 @@ namespace Voxels.World.Generation
 
             if (name.Contains("ash"))
             {
-                return PoiKind.DeadTree;
+                return variant < 0.4f ? PoiKind.CampSite : PoiKind.DeadTree;
             }
 
-            return variant < 0.12f ? PoiKind.BoulderPatch : PoiKind.Oak;
+            if (variant < 0.08f) return PoiKind.CampSite;
+            return variant < 0.2f ? PoiKind.BoulderPatch : PoiKind.Oak;
         }
 
         static void PlaceMushroomCluster(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
@@ -217,6 +232,46 @@ namespace Voxels.World.Generation
 
         static BlockId ResolveTrunk(BiomeDefinition biome, BlockId fallback) =>
             biome?.SubsoilBlock != null ? biome.SubsoilBlock.BlockId : fallback;
+
+        static void PlaceCrystalSpire(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
+        {
+            BlockId crystal = new BlockId(13);
+            BlockId stone = biome?.BedrockBlock != null ? biome.BedrockBlock.BlockId : new BlockId(3);
+            column.SetBlock(surfaceHeight + 1, stone);
+            for (int layer = surfaceHeight + 2; layer <= surfaceHeight + 4; layer++)
+            {
+                if (layer < settings.ColumnCapacity)
+                {
+                    column.SetBlock(layer, crystal);
+                }
+            }
+        }
+
+        static void PlaceCampSite(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
+        {
+            BlockId ash = biome?.SurfaceBlock != null ? biome.SurfaceBlock.BlockId : new BlockId(15);
+            BlockId fire = new BlockId(4);
+            column.SetBlock(surfaceHeight + 1, ash);
+            if (surfaceHeight + 2 < settings.ColumnCapacity)
+            {
+                column.SetBlock(surfaceHeight + 2, fire);
+            }
+        }
+
+        static void PlaceFungalRing(BlockColumn column, int surfaceHeight, WorldSettings settings, BiomeDefinition biome)
+        {
+            BlockId fungus = new BlockId(14);
+            BlockId stem = ResolveTrunk(biome, new BlockId(2));
+            column.SetBlock(surfaceHeight + 1, stem);
+            if (surfaceHeight + 2 < settings.ColumnCapacity)
+            {
+                column.SetBlock(surfaceHeight + 2, fungus);
+            }
+            if (surfaceHeight + 3 < settings.ColumnCapacity)
+            {
+                column.SetBlock(surfaceHeight + 3, fungus);
+            }
+        }
 
         static BlockId ResolveLeaves(BiomeDefinition biome, BlockId fallback) =>
             biome?.SurfaceBlock != null ? biome.SurfaceBlock.BlockId : fallback;

@@ -36,6 +36,8 @@ namespace Voxels.Runtime
         PlayerHealth playerHealth;
         PlayerStatsController playerStats;
         PlayerDeathHandler deathHandler;
+        PlayerDeathOverlayView deathOverlay;
+        PlayerEquipmentController equipmentController;
         WeatherAudioController weatherAudio;
         CraftingHudView craftingHud;
         GameSettingsMenuView settingsMenu;
@@ -110,6 +112,7 @@ namespace Voxels.Runtime
             toolState = GetOrAdd<PlayerToolState>();
             runtimeProfiler = GetOrAdd<WorldRuntimeProfiler>();
             gameHud = GetOrAdd<GameHudView>();
+            deathOverlay = GetOrAdd<PlayerDeathOverlayView>();
             skyClouds = GetOrAdd<HexSkyCloudController>();
             weatherSystem = GetOrAdd<WeatherSystem>();
             weatherParticles = GetOrAdd<WeatherParticleController>();
@@ -260,6 +263,11 @@ namespace Voxels.Runtime
                 playerStats = player.gameObject.AddComponent<PlayerStatsController>();
             }
 
+            if (statsProfile == null)
+            {
+                statsProfile = Resources.Load<PlayerStatsProfile>("PlayerStats_Survival");
+            }
+
             if (statsProfile != null)
             {
                 playerStats.Configure(statsProfile);
@@ -277,7 +285,15 @@ namespace Voxels.Runtime
                 deathHandler = player.gameObject.AddComponent<PlayerDeathHandler>();
             }
 
-            deathHandler.Initialize(playerStats, playerController, worldScroller, settings, hexWorld);
+            deathHandler.Initialize(playerStats, playerController, worldScroller, settings, hexWorld, deathOverlay);
+
+            equipmentController = player.GetComponent<PlayerEquipmentController>();
+            if (equipmentController == null)
+            {
+                equipmentController = player.gameObject.AddComponent<PlayerEquipmentController>();
+            }
+
+            equipmentController.Initialize(blockHotbar, hexWorld, playerStats);
 
             playerController.enabled = true;
 

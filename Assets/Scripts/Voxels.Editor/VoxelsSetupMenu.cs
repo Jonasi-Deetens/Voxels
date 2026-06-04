@@ -205,6 +205,7 @@ namespace Voxels.EditorTools
             worldObject.FindProperty("useBackgroundMeshBuild").boolValue = true;
             worldObject.ApplyModifiedPropertiesWithoutUndo();
 
+            EnsurePlayerStatsProfile();
             AssignBiomeAmbientLoops();
 
             AssetDatabase.SaveAssets();
@@ -287,6 +288,12 @@ namespace Voxels.EditorTools
             for (int i = 0; i < blocks.Length; i++)
             {
                 bootstrapObject.FindProperty("blockDefinitions").GetArrayElementAtIndex(i).objectReferenceValue = blocks[i];
+            }
+
+            SerializedProperty statsProfileProp = bootstrapObject.FindProperty("statsProfile");
+            if (statsProfileProp != null)
+            {
+                statsProfileProp.objectReferenceValue = AssetDatabase.LoadAssetAtPath<PlayerStatsProfile>("Assets/Data/PlayerStats_Survival.asset");
             }
 
             bootstrapObject.ApplyModifiedPropertiesWithoutUndo();
@@ -484,6 +491,60 @@ namespace Voxels.EditorTools
 
             blockObject.FindProperty("materialCategory").enumValueIndex = (int)category;
             blockObject.FindProperty("breakTime").floatValue = breakTime;
+            ApplyBlockSurvival(blockObject, displayName);
+        }
+
+        static void ApplyBlockSurvival(SerializedObject blockObject, string displayName)
+        {
+            float hunger = 0f;
+            float health = 0f;
+            float defense = 0f;
+            float mining = 1f;
+
+            switch (displayName)
+            {
+                case "Fungus":
+                    hunger = 35f;
+                    health = 5f;
+                    break;
+                case "Yellow Grass":
+                    hunger = 20f;
+                    health = 3f;
+                    break;
+                case "Grass":
+                case "Dark Grass":
+                    hunger = 15f;
+                    health = 2f;
+                    break;
+                case "Crystal":
+                    defense = 0.12f;
+                    mining = 1.15f;
+                    break;
+                case "Ash":
+                    defense = 0.08f;
+                    break;
+            }
+
+            blockObject.FindProperty("hungerRestore").floatValue = hunger;
+            blockObject.FindProperty("healthRestoreOnEat").floatValue = health;
+            blockObject.FindProperty("heldDefensePercent").floatValue = defense;
+            blockObject.FindProperty("heldMiningMultiplier").floatValue = mining;
+        }
+
+        static void EnsurePlayerStatsProfile()
+        {
+            EnsureFolder("Assets/Data");
+            const string path = "Assets/Data/PlayerStats_Survival.asset";
+            var profile = CreateOrLoad<PlayerStatsProfile>(path);
+            SerializedObject profileObject = new SerializedObject(profile);
+            profileObject.FindProperty("maxHealth").floatValue = 20f;
+            profileObject.FindProperty("maxStamina").floatValue = 100f;
+            profileObject.FindProperty("maxHunger").floatValue = 100f;
+            profileObject.FindProperty("maxBreath").floatValue = 100f;
+            profileObject.FindProperty("fungusHungerRestore").floatValue = 35f;
+            profileObject.FindProperty("yellowGrassHungerRestore").floatValue = 20f;
+            profileObject.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.SaveAssets();
         }
 
         static void EnsureFolder(string path)

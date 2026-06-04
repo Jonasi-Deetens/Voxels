@@ -9,9 +9,16 @@ namespace Voxels.Runtime
             BlockHotbar hotbar,
             PlayerInventory inventory,
             BlockRegistry registry,
-            PlayerStatsController stats)
+            PlayerStatsController stats,
+            out string feedback)
         {
+            feedback = string.Empty;
             if (hotbar == null || inventory == null || registry == null || stats == null)
+            {
+                return false;
+            }
+
+            if (stats.IsDead)
             {
                 return false;
             }
@@ -22,22 +29,9 @@ namespace Voxels.Runtime
                 return false;
             }
 
-            if (!registry.TryGetDefinition(blockId, out BlockDefinition definition))
+            if (!registry.TryGetDefinition(blockId, out BlockDefinition definition) || !definition.IsEdible)
             {
-                return false;
-            }
-
-            PlayerStatsProfile profile = stats.Profile;
-            float restore = definition.DisplayName switch
-            {
-                "Fungus" => profile.fungusHungerRestore,
-                "Yellow Grass" => profile.yellowGrassHungerRestore,
-                "Grass" => profile.yellowGrassHungerRestore * 0.75f,
-                _ => 0f,
-            };
-
-            if (restore <= 0f)
-            {
+                feedback = "Can't eat that";
                 return false;
             }
 
@@ -46,8 +40,9 @@ namespace Voxels.Runtime
                 return false;
             }
 
-            stats.Add(StatId.Hunger, restore);
-            stats.Add(StatId.Health, restore * 0.15f);
+            stats.Add(StatId.Hunger, definition.HungerRestore);
+            stats.Add(StatId.Health, definition.HealthRestoreOnEat);
+            feedback = $"Ate {definition.DisplayName} (+{definition.HungerRestore:0} food)";
             return true;
         }
     }

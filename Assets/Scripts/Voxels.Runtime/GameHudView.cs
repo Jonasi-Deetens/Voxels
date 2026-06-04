@@ -32,6 +32,9 @@ namespace Voxels.Runtime
     Image healthBarFill;
     Image staminaBarFill;
     Image hungerBarFill;
+    Image breathBarFill;
+    Text transientText;
+    float transientUntil;
 
     const int MinimapSize = 25;
 
@@ -168,10 +171,20 @@ namespace Voxels.Runtime
       statBarRect.anchorMax = new Vector2(0f, 1f);
       statBarRect.pivot = new Vector2(0f, 1f);
       statBarRect.anchoredPosition = new Vector2(12f, -240f);
-      statBarRect.sizeDelta = new Vector2(180f, 52f);
+      statBarRect.sizeDelta = new Vector2(180f, 70f);
       healthBarFill = CreateStatBar(statBarRoot.transform, "Health", new Color(0.85f, 0.2f, 0.2f), 0f);
       staminaBarFill = CreateStatBar(statBarRoot.transform, "Stamina", new Color(0.95f, 0.85f, 0.2f), -18f);
       hungerBarFill = CreateStatBar(statBarRoot.transform, "Hunger", new Color(0.45f, 0.75f, 0.35f), -36f);
+      breathBarFill = CreateStatBar(statBarRoot.transform, "Breath", new Color(0.35f, 0.65f, 0.95f), -54f);
+
+      transientText = CreateText(canvasObject.transform, "Transient", 16, TextAnchor.LowerCenter);
+      var transientRect = transientText.rectTransform;
+      transientRect.anchorMin = transientRect.anchorMax = new Vector2(0.5f, 0f);
+      transientRect.pivot = new Vector2(0.5f, 0f);
+      transientRect.anchoredPosition = new Vector2(0f, 72f);
+      transientRect.sizeDelta = new Vector2(520f, 28f);
+      transientText.color = new Color(0.95f, 0.92f, 0.7f);
+      transientText.gameObject.SetActive(false);
 
             crosshairImage = CreatePanel(canvasObject.transform, "Crosshair", new Color(1f, 1f, 1f, 0.85f));
       var crossRect = crosshairImage.rectTransform;
@@ -220,6 +233,7 @@ namespace Voxels.Runtime
       UpdateStatBars();
       UpdateHotbar();
       UpdateBreakBar();
+      UpdateTransientMessage();
       if (showDebug)
       {
         UpdateDebug();
@@ -245,6 +259,21 @@ namespace Voxels.Runtime
       SetBarFill(healthBarFill, playerStats.GetNormalized(StatId.Health));
       SetBarFill(staminaBarFill, playerStats.GetNormalized(StatId.Stamina));
       SetBarFill(hungerBarFill, playerStats.GetNormalized(StatId.Hunger));
+      float breathNorm = playerStats.GetNormalized(StatId.Breath);
+      SetBarFill(breathBarFill, breathNorm);
+      bool showBreath = breathNorm < 0.98f;
+      if (breathBarFill != null && breathBarFill.transform.parent != null)
+      {
+        breathBarFill.transform.parent.gameObject.SetActive(showBreath);
+      }
+
+      Color healthColor = playerStats.GetNormalized(StatId.Health) < 0.25f
+        ? new Color(1f, 0.35f, 0.3f)
+        : new Color(0.85f, 0.2f, 0.2f);
+      if (healthBarFill != null)
+      {
+        healthBarFill.color = healthColor;
+      }
     }
 
     static void SetBarFill(Image fill, float normalized)
@@ -322,7 +351,7 @@ namespace Voxels.Runtime
       string weatherLine = weather != null ? $"Weather {weather.Snapshot.Kind}  precip {weather.Snapshot.Precipitation:0.00}" : string.Empty;
       PlayerStatsController debugStats = playerStats != null ? playerStats : FindAnyObjectByType<PlayerStatsController>();
       string healthLine = debugStats != null
-        ? $"HP {debugStats.GetCurrent(StatId.Health):0}/{debugStats.GetMax(StatId.Health):0}  ST {debugStats.GetCurrent(StatId.Stamina):0}  Food {debugStats.GetCurrent(StatId.Hunger):0}  Def {debugStats.GetDefensePercent() * 100f:0}%  Mine x{debugStats.GetMiningMultiplier():0.00}"
+        ? $"HP {debugStats.GetCurrent(StatId.Health):0}/{debugStats.GetMax(StatId.Health):0}  ST {debugStats.GetCurrent(StatId.Stamina):0}  Food {debugStats.GetCurrent(StatId.Hunger):0}  Br {debugStats.GetCurrent(StatId.Breath):0}  Def {debugStats.GetDefensePercent() * 100f:0}%  Mine x{debugStats.GetMiningMultiplier():0.00}"
         : string.Empty;
 
       debugText.text =
@@ -349,6 +378,31 @@ namespace Voxels.Runtime
       if (show)
       {
         breakSlider.value = blockInteractor.BreakProgress;
+      }
+    }
+
+    public void ShowTransientMessage(string message, float durationSeconds = 2f)
+    {
+      if (transientText == null)
+      {
+        return;
+      }
+
+      transientText.text = message;
+      transientText.gameObject.SetActive(!string.IsNullOrEmpty(message));
+      transientUntil = Time.time + durationSeconds;
+    }
+
+    void UpdateTransientMessage()
+    {
+      if (transientText == null || !transientText.gameObject.activeSelf)
+      {
+        return;
+      }
+
+      if (Time.time >= transientUntil)
+      {
+        transientText.gameObject.SetActive(false);
       }
     }
 

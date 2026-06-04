@@ -55,3 +55,14 @@ Run in Unity 6 (`6000.4.x`) after pulling the branch. Play **SampleScene** with 
 ## Automated (Editor Test Runner)
 - [ ] **Voxels.Tests** — all Edit Mode tests green
 - [ ] **Voxels.PlayModeTests** — run if Play Mode batch available
+
+## Death overlay
+- [ ] On death: full-screen overlay, movement locked
+- [ ] Respawn button or auto-respawn after countdown
+- [ ] Respawn at world spawn with partial health
+
+## Stats polish
+- [ ] Breath bar appears when underwater or breath not full
+- [ ] **E** eat uses block food values (Fungus, grasses)
+- [ ] Hold **Crystal** or **Ash** in hotbar for defense/mining bonus
+

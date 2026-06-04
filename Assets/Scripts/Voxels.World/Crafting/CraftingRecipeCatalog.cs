@@ -11,6 +11,10 @@ namespace Voxels.World.Crafting
             Make("Sand", 2, "Gravel", 1),
             MakeDual("Gravel", 1, "Stone", 1, "Stone", 2),
             Make("Snow", 2, "Ice", 1),
+            Make("Fungus", 3, "Yellow Grass", 2),
+            Make("Crystal", 2, "Stone", 4),
+            MakeDual("Ash", 2, "Dirt", 2, "Gravel", 3),
+            Make("Yellow Grass", 4, "Dark Grass", 2),
         };
 
         public static IReadOnlyList<CraftingRecipe> All => Recipes;

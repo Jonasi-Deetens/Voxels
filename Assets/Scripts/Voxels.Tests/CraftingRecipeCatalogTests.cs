@@ -59,6 +59,12 @@ namespace Voxels.Tests
             Assert.AreEqual(1, inventory.Stone);
         }
 
+        [Test]
+        public void Catalog_has_multiple_recipes()
+        {
+            Assert.GreaterOrEqual(CraftingRecipeCatalog.All.Count, 8);
+        }
+
         static BlockDefinition MakeBlock(ushort id, string name)
         {
             var block = ScriptableObject.CreateInstance<BlockDefinition>();

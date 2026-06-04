@@ -17,6 +17,7 @@ namespace Voxels.Runtime
         float hungerDrainMultiplier = 1f;
         bool isUnderwater;
 
+        public bool IsDead => isDead;
         public PlayerStatsProfile Profile => profile;
 
         public void Configure(PlayerStatsProfile newProfile)
@@ -47,6 +48,12 @@ namespace Voxels.Runtime
             if (IsCreative())
             {
                 ResetToFull();
+                isDead = false;
+                return;
+            }
+
+            if (isDead)
+            {
                 return;
             }
 
@@ -189,6 +196,17 @@ namespace Voxels.Runtime
             }
 
             modifiers.Add(modifier);
+        }
+
+        public void RemoveModifiersFromSource(string sourceId)
+        {
+            for (int i = modifiers.Count - 1; i >= 0; i--)
+            {
+                if (modifiers[i].source == sourceId)
+                {
+                    modifiers.RemoveAt(i);
+                }
+            }
         }
 
         public bool CanSprint() => IsCreative() || GetCurrent(StatId.Stamina) > 1f;

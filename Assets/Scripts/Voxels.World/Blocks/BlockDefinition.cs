@@ -15,6 +15,14 @@ namespace Voxels.World
         [SerializeField] BlockMaterialCategory materialCategory = BlockMaterialCategory.Other;
         [SerializeField] float breakTime = 0.35f;
 
+        [Header("Food (eat from hotbar with E)")]
+        [SerializeField] float hungerRestore;
+        [SerializeField] float healthRestoreOnEat;
+
+        [Header("Held equipment (selected hotbar slot)")]
+        [SerializeField] float heldDefensePercent;
+        [SerializeField] float heldMiningMultiplier = 1f;
+
         public BlockId BlockId => new(id);
         public string DisplayName => displayName;
         public Material Material => material;
@@ -23,5 +31,12 @@ namespace Voxels.World
         public bool IsFluid => isFluid;
         public BlockMaterialCategory MaterialCategory => materialCategory;
         public float BreakTime => breakTime;
+        public float HungerRestore => hungerRestore;
+        public float HealthRestoreOnEat => healthRestoreOnEat;
+        public float HeldDefensePercent => heldDefensePercent;
+        public float HeldMiningMultiplier => heldMiningMultiplier;
+
+        public bool IsEdible => hungerRestore > 0f;
+        public bool HasHeldBonus => heldDefensePercent > 0f || heldMiningMultiplier > 1.01f;
     }
 }

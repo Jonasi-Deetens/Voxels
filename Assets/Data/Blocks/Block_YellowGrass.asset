@@ -17,3 +17,7 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: cc203e54c5002d442b28c996c4067fcf, type: 2}
   isSolid: 1
   isOpaque: 1
+  hungerRestore: 20
+  healthRestoreOnEat: 3
+  heldDefensePercent: 0
+  heldMiningMultiplier: 1

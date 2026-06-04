@@ -32,6 +32,7 @@ namespace Voxels.Runtime
         HexCoord lastNotifiedHex;
         WaterDepthTier waterDepth;
         PlayerStatsController playerStats;
+        bool inputLocked;
 
         public bool IsGrounded { get; private set; }
         public bool IsSwimming { get; private set; }
@@ -56,6 +57,10 @@ namespace Voxels.Runtime
             ConfigureCapsule();
             lastNotifiedHex = scroller != null ? scroller.PlayerWorldHex : HexCoord.Zero;
             playerStats = GetComponent<PlayerStatsController>();
+            if (playerStats != null && playerStats.IsDead)
+            {
+                inputLocked = true;
+            }
         }
 
         void ConfigureCapsule()
@@ -73,9 +78,11 @@ namespace Voxels.Runtime
             controller.slopeLimit = 55f;
         }
 
+        public void SetInputLocked(bool locked) => inputLocked = locked;
+
         void Update()
         {
-            if (!isActiveAndEnabled || controller == null || settings == null)
+            if (!isActiveAndEnabled || controller == null || settings == null || inputLocked)
             {
                 return;
             }

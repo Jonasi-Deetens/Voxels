@@ -12,20 +12,30 @@ namespace Voxels.Runtime
         WorldScroller scroller;
         WorldSettings settings;
         HexWorld hexWorld;
+        PlayerDeathOverlayView deathOverlay;
         bool subscribed;
+        bool awaitingRespawn;
 
         public void Initialize(
             PlayerStatsController playerStats,
             FlatPlayerController playerMovement,
             WorldScroller worldScroller,
             WorldSettings worldSettings,
-            HexWorld world)
+            HexWorld world,
+            PlayerDeathOverlayView overlay = null)
         {
             stats = playerStats;
             movement = playerMovement;
             scroller = worldScroller;
             settings = worldSettings;
             hexWorld = world;
+            deathOverlay = overlay;
+            if (deathOverlay != null)
+            {
+                deathOverlay.RespawnRequested -= OnRespawnRequested;
+                deathOverlay.RespawnRequested += OnRespawnRequested;
+            }
+
             Subscribe();
         }
 
@@ -38,6 +48,11 @@ namespace Voxels.Runtime
                 stats.Died -= OnDied;
                 subscribed = false;
             }
+
+            if (deathOverlay != null)
+            {
+                deathOverlay.RespawnRequested -= OnRespawnRequested;
+            }
         }
 
         void Subscribe()
@@ -47,14 +62,37 @@ namespace Voxels.Runtime
                 return;
             }
 
+            stats.Died -= OnDied;
             stats.Died += OnDied;
             subscribed = true;
         }
 
         void OnDied()
         {
+            if (stats == null || awaitingRespawn)
+            {
+                return;
+            }
+
+            awaitingRespawn = true;
+            movement?.SetInputLocked(true);
+            if (deathOverlay != null)
+            {
+                deathOverlay.Show();
+            }
+            else
+            {
+                PerformRespawn();
+            }
+        }
+
+        void OnRespawnRequested() => PerformRespawn();
+
+        void PerformRespawn()
+        {
             if (stats == null || scroller == null || settings == null || hexWorld == null)
             {
+                awaitingRespawn = false;
                 return;
             }
 
@@ -65,7 +103,9 @@ namespace Voxels.Runtime
             transform.position = new Vector3(0f, y, 0f);
             movement?.SnapToGround();
             stats.RespawnAfterDeath(respawnHealthFraction);
-            UnityEngine.Debug.Log("You died and respawned at the world spawn.");
+            movement?.SetInputLocked(false);
+            deathOverlay?.Hide();
+            awaitingRespawn = false;
         }
     }
 }

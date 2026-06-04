@@ -67,6 +67,12 @@ namespace Voxels.Runtime
                 return;
             }
 
+            if (playerStats != null && playerStats.IsDead)
+            {
+                breaking = false;
+                HasBlockTarget = false;
+                return;
+            }
 
             HasBlockTarget = TryGetTarget(false, out _);
 
@@ -81,7 +87,11 @@ namespace Voxels.Runtime
 
             if (GameInput.WasEatPressedThisFrame() && hotbar != null && inventory != null && playerStats != null)
             {
-                PlayerFoodUtility.TryEatFromHotbar(hotbar, inventory, hexWorld.BlockRegistry, playerStats);
+                if (PlayerFoodUtility.TryEatFromHotbar(hotbar, inventory, hexWorld.BlockRegistry, playerStats, out string eatFeedback))
+                {
+                    GameHudView hud = FindAnyObjectByType<GameHudView>();
+                    hud?.ShowTransientMessage(eatFeedback, 2.2f);
+                }
             }
 
             if (GameInput.WasCycleToolPressedThisFrame() && toolState != null)
