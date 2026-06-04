@@ -22,6 +22,7 @@ namespace Voxels.Runtime
         PlayerToolState toolState;
         PlayerInventory inventory;
         PlayerHealth playerHealth;
+        PlayerStatsController playerStats;
         WeatherSystem weatherSystem;
         Transform playerTransform;
 
@@ -35,6 +36,7 @@ namespace Voxels.Runtime
             PlayerInventory playerInventory,
             Transform player,
             PlayerHealth health = null,
+            PlayerStatsController stats = null,
             WeatherSystem weather = null)
         {
             hexWorld = world;
@@ -46,6 +48,7 @@ namespace Voxels.Runtime
             inventory = playerInventory;
             playerTransform = player;
             playerHealth = health;
+            playerStats = stats;
             weatherSystem = weather;
         }
 
@@ -92,7 +95,10 @@ namespace Voxels.Runtime
                 playerY = playerTransform != null ? playerTransform.position.y : 0f,
                 hotbarIndex = hotbar != null ? hotbar.SelectedIndex : 0,
                 activeTool = toolState != null ? (int)toolState.ActiveTool : 0,
-                playerHealth = playerHealth != null ? playerHealth.Health : 20f,
+                playerHealth = playerStats != null ? playerStats.GetCurrent(StatId.Health) : (playerHealth != null ? playerHealth.Health : 20f),
+                playerStamina = playerStats != null ? playerStats.GetCurrent(StatId.Stamina) : 100f,
+                playerHunger = playerStats != null ? playerStats.GetCurrent(StatId.Hunger) : 100f,
+                playerBreath = playerStats != null ? playerStats.GetCurrent(StatId.Breath) : 100f,
             };
 
             if (weatherSystem != null)
@@ -238,7 +244,18 @@ namespace Voxels.Runtime
 
             hotbar?.SelectSlot(data.hotbarIndex);
             toolState?.SetTool((PlayerToolMode)Mathf.Clamp(data.activeTool, 0, (int)PlayerToolMode.Bucket));
-            playerHealth?.SetHealth(data.playerHealth > 0f ? data.playerHealth : 20f);
+                        if (playerStats != null)
+            {
+                float health = data.playerHealth > 0f ? data.playerHealth : 20f;
+                float stamina = data.version >= 4 ? data.playerStamina : playerStats.GetMax(StatId.Stamina);
+                float hunger = data.version >= 4 ? data.playerHunger : playerStats.GetMax(StatId.Hunger);
+                float breath = data.version >= 4 ? data.playerBreath : playerStats.GetMax(StatId.Breath);
+                playerStats.RestoreFromSave(health, stamina, hunger, breath);
+            }
+            else
+            {
+                playerHealth?.SetHealth(data.playerHealth > 0f ? data.playerHealth : 20f);
+            }
             if (weatherSystem != null && data.version >= 3)
             {
                 weatherSystem.ImportSaveState(data.weatherKind, data.weatherTargetKind, data.weatherTransition, false);

@@ -154,9 +154,10 @@ namespace Voxels.Runtime
                 blockHotbar,
                 blockFeedback,
                 toolState,
-                playerInventory);
-            saveSystem.Initialize(hexWorld, settings, chunkManager, worldScroller, blockHotbar, toolState, playerInventory, player, playerHealth, weatherSystem);
-            gameHud.Initialize(worldScroller, chunkManager, celestialSystem, blockHotbar, toolState, runtimeProfiler, settings, blockInteractor, playerInventory);
+                playerInventory,
+                playerStats);
+            saveSystem.Initialize(hexWorld, settings, chunkManager, worldScroller, blockHotbar, toolState, playerInventory, player, playerHealth, playerStats, weatherSystem);
+            gameHud.Initialize(worldScroller, chunkManager, celestialSystem, blockHotbar, toolState, runtimeProfiler, settings, blockInteractor, playerInventory, playerStats);
             biomeAmbience.Initialize(worldScroller, celestialSystem);
             Transform weatherFollow = spawnCamera != null ? spawnCamera.transform : player;
             weatherParticles.Initialize(weatherFollow);
@@ -168,7 +169,8 @@ namespace Voxels.Runtime
                 skyController,
                 biomeAmbience,
                 weatherParticles,
-                weatherAudio);
+                weatherAudio,
+                playerStats);
             nightSpawner.Initialize(worldScroller, settings, player);
             dayNight.Initialize(celestialSystem, nightSpawner);
             craftingHud.Initialize(craftingSystem);
@@ -242,11 +244,30 @@ namespace Voxels.Runtime
             }
 
             playerController.SnapToGround();
+            playerStats = player.GetComponent<PlayerStatsController>();
+            if (playerStats == null)
+            {
+                playerStats = player.gameObject.AddComponent<PlayerStatsController>();
+            }
+
+            if (statsProfile != null)
+            {
+                playerStats.Configure(statsProfile);
+            }
+
             playerHealth = player.GetComponent<PlayerHealth>();
             if (playerHealth == null)
             {
                 playerHealth = player.gameObject.AddComponent<PlayerHealth>();
             }
+
+            deathHandler = player.GetComponent<PlayerDeathHandler>();
+            if (deathHandler == null)
+            {
+                deathHandler = player.gameObject.AddComponent<PlayerDeathHandler>();
+            }
+
+            deathHandler.Initialize(playerStats, playerController, worldScroller, settings, hexWorld);
 
             playerController.enabled = true;
 
@@ -308,7 +329,7 @@ namespace Voxels.Runtime
             {
                 "Grass", "Dirt", "Stone", "Sand", "Gravel", "Snow", "Dark Grass", "Fungus", "Crystal",
             };
-            int[] amounts = { 24, 24, 16, 12, 12, 8, 8, 6, 4 };
+            int[] amounts = { 24, 24, 16, 12, 12, 8, 8, 8, 4 };
 
             for (int i = 0; i < names.Length; i++)
             {

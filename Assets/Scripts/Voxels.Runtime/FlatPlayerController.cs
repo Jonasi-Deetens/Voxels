@@ -31,6 +31,7 @@ namespace Voxels.Runtime
         float jumpBufferTimer;
         HexCoord lastNotifiedHex;
         WaterDepthTier waterDepth;
+        PlayerStatsController playerStats;
 
         public bool IsGrounded { get; private set; }
         public bool IsSwimming { get; private set; }
@@ -54,6 +55,7 @@ namespace Voxels.Runtime
             viewTransform = view != null ? view : GetComponentInChildren<Camera>()?.transform;
             ConfigureCapsule();
             lastNotifiedHex = scroller != null ? scroller.PlayerWorldHex : HexCoord.Zero;
+            playerStats = GetComponent<PlayerStatsController>();
         }
 
         void ConfigureCapsule()
@@ -79,6 +81,7 @@ namespace Voxels.Runtime
             }
 
             Vector3 positionBefore = transform.position;
+            UpdateStatsEnvironment();
             if (IsCreativeMode())
             {
                 HandleCreativeMovement();
@@ -126,8 +129,10 @@ namespace Voxels.Runtime
                 input = Vector2.ClampMagnitude(input, 1f);
                 Vector3 forward = Vector3.ProjectOnPlane(facing.forward, Vector3.up).normalized;
                 Vector3 right = Vector3.Cross(Vector3.up, forward);
+                bool sprint = GameInput.IsSprintHeld() && (playerStats == null || playerStats.CanSprint());
                 float speed = settings.SwimSpeed * (waterDepth == WaterDepthTier.Deep ? 1.15f : 0.85f) *
-                    (GameInput.IsSprintHeld() ? sprintMultiplier : 1f);
+                    (sprint ? sprintMultiplier : 1f);
+                playerStats?.SpendSwim(Time.deltaTime, sprint);
                 move += (forward * input.y + right * input.x) * speed;
             }
 
@@ -211,9 +216,12 @@ namespace Voxels.Runtime
 
             if (coyoteTimer > 0f && jumpBufferTimer > 0f)
             {
-                verticalVelocity = math.sqrt(jumpHeight * 2f * gravity);
-                jumpBufferTimer = 0f;
-                coyoteTimer = 0f;
+                if (playerStats == null || playerStats.TryJump())
+                {
+                    verticalVelocity = math.sqrt(jumpHeight * 2f * gravity);
+                    jumpBufferTimer = 0f;
+                    coyoteTimer = 0f;
+                }
             }
 
             float gravityScale = waterDepth == WaterDepthTier.Deep ? 0.35f : 1f;
@@ -227,7 +235,9 @@ namespace Voxels.Runtime
                 input = Vector2.ClampMagnitude(input, 1f);
                 Vector3 forward = Vector3.ProjectOnPlane(facing.forward, Vector3.up).normalized;
                 Vector3 right = Vector3.Cross(Vector3.up, forward);
-                float speed = moveSpeed * (GameInput.IsSprintHeld() ? sprintMultiplier : 1f);
+                bool sprint = GameInput.IsSprintHeld() && (playerStats == null || playerStats.CanSprint());
+                float speed = moveSpeed * (sprint ? sprintMultiplier : 1f);
+                playerStats?.SpendSprint(Time.deltaTime);
                 move = (forward * input.y + right * input.x) * speed;
             }
 
@@ -270,3 +280,15 @@ namespace Voxels.Runtime
         }
     }
 }
+
+
+        void UpdateStatsEnvironment()
+        {
+            if (playerStats == null)
+            {
+                return;
+            }
+
+            bool underwater = !IsCreativeMode() && IsSwimming && waterDepth == WaterDepthTier.Deep;
+            playerStats.SetUnderwater(underwater);
+        }
