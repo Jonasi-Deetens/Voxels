@@ -14,6 +14,22 @@
   "structurePois": [
     { "biomeNameContains": "Forest", "poiKind": "Pine", "weight": 1.2 },
     { "biomeNameContains": "Desert", "poiKind": "Cactus", "weight": 1.1 },
-    { "biomeNameContains": "Fungal", "poiKind": "MushroomCluster", "weight": 1.3 }
+    { "biomeNameContains": "Fungal", "poiKind": "MushroomCluster", "weight": 1.3 },
+    { "biomeNameContains": "Crystal", "poiKind": "StoneRuin", "weight": 1.4 },
+    { "biomeNameContains": "Grassland", "poiKind": "WandererCamp", "weight": 1.15 }
+  ],
+  "foodOverrides": [
+    { "blockName": "Fungus", "hungerRestore": 40, "healthRestoreOnEat": 6 },
+    { "blockName": "Yellow Grass", "hungerRestore": 22, "healthRestoreOnEat": 3 }
+  ],
+  "craftingRecipes": [
+    {
+      "outputBlockName": "Crystal",
+      "outputCount": 1,
+      "inputs": [
+        { "blockName": "Stone", "count": 6 },
+        { "blockName": "Gravel", "count": 2 }
+      ]
+    }
   ]
 }

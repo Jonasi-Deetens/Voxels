@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Voxels.Core.Blocks;
+using Voxels.World.Modding;
 
 namespace Voxels.World.Crafting
 {
@@ -17,7 +18,29 @@ namespace Voxels.World.Crafting
             Make("Yellow Grass", 4, "Dark Grass", 2),
         };
 
-        public static IReadOnlyList<CraftingRecipe> All => Recipes;
+        public static IReadOnlyList<CraftingRecipe> All => GetAllRecipes();
+
+        public static IReadOnlyList<CraftingRecipe> GetAllRecipes()
+        {
+            IReadOnlyList<CraftingRecipe> mod = VoxelsModConfig.BuildModRecipes();
+            if (mod == null || mod.Count == 0)
+            {
+                return Recipes;
+            }
+
+            var merged = new List<CraftingRecipe>(Recipes.Length + mod.Count);
+            for (int i = 0; i < Recipes.Length; i++)
+            {
+                merged.Add(Recipes[i]);
+            }
+
+            for (int i = 0; i < mod.Count; i++)
+            {
+                merged.Add(mod[i]);
+            }
+
+            return merged;
+        }
 
         static CraftingRecipe Make(string input, int inputCount, string output, int outputCount) =>
             new CraftingRecipe
@@ -41,9 +64,10 @@ namespace Voxels.World.Crafting
 
         public static bool TryCraft(BlockRegistry registry, PlayerInventoryAccessor inventory, out string resultMessage)
         {
-            for (int i = 0; i < Recipes.Length; i++)
+            IReadOnlyList<CraftingRecipe> all = GetAllRecipes();
+            for (int i = 0; i < all.Count; i++)
             {
-                if (TryCraftRecipe(registry, inventory, Recipes[i], out BlockId output, out int count))
+                if (TryCraftRecipe(registry, inventory, all[i], out BlockId output, out int count))
                 {
                     inventory.Add(output, count);
                     registry.TryGetDefinition(output, out BlockDefinition def);

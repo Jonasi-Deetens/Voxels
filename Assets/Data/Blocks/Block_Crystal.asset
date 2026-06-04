@@ -20,4 +20,6 @@ MonoBehaviour:
   hungerRestore: 0
   healthRestoreOnEat: 0
   heldDefensePercent: 0.12
+  isEmissive: 1
+  lightEmission: 12
   heldMiningMultiplier: 1.15

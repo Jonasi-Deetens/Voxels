@@ -9,7 +9,8 @@ namespace Voxels.World
         readonly WorldSettings settings;
         readonly HexWorldDataCache dataCache;
         readonly BlockRegistry blockRegistry;
-        readonly HashSet<HexCoord> dirtyHexes = new HashSet<HexCoord>();
+        readonly HashSet<HexCoord> dirtyHexes;
+        readonly HashSet<HexCoord> structureReservedHexes = new HashSet<HexCoord>();
         HexCoord noiseOriginHex;
 
         public WorldSettings Settings => settings;
@@ -45,6 +46,10 @@ namespace Voxels.World
         public bool IsColumnDirty(in HexCoord hex) => dirtyHexes.Contains(hex);
 
         public void MarkColumnDirty(in HexCoord hex) => dirtyHexes.Add(hex);
+
+        public bool IsStructureReserved(in HexCoord hex) => structureReservedHexes.Contains(hex);
+
+        public bool TryReserveStructureHex(in HexCoord hex) => structureReservedHexes.Add(hex);
 
         public void ClearDirtyColumns() => dirtyHexes.Clear();
 

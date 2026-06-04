@@ -217,7 +217,7 @@ namespace Voxels.Runtime
             column.SetBlock(breakTarget.Layer, BlockId.Air);
             hexWorld.MarkColumnDirty(breakTarget.WorldHex);
             chunkManager.RebuildChunksForWorldHex(breakTarget.WorldHex, scroller.PlayerWorldHex);
-            feedback?.PlayBreak(GetBlockWorldPosition(breakTarget));
+            feedback?.PlayBreak(GetBlockWorldPosition(breakTarget), ResolveDefinition(breakTarget.BlockId));
 
             if (!existing.IsAir)
             {
@@ -287,7 +287,7 @@ namespace Voxels.Runtime
             column.SetBlock(target.Layer, placeId);
             hexWorld.MarkColumnDirty(target.WorldHex);
             chunkManager.RebuildChunksForWorldHex(target.WorldHex, scroller.PlayerWorldHex);
-            feedback?.PlayPlace(GetBlockWorldPosition(target));
+            feedback?.PlayPlace(GetBlockWorldPosition(target), ResolveDefinition(target.BlockId));
             WaterFlowUtility.SettleAround(hexWorld, target.WorldHex, settings);
         }
 

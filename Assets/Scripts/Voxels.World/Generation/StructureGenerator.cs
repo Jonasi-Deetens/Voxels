@@ -2,6 +2,7 @@ using Unity.Mathematics;
 using Voxels.Core.Blocks;
 using Voxels.Core.Hex;
 using Voxels.World;
+using Voxels.World.Modding;
 
 namespace Voxels.World.Generation
 {
@@ -19,6 +20,11 @@ namespace Voxels.World.Generation
                 return;
             }
 
+            if (world.IsStructureReserved(worldHex))
+            {
+                return;
+            }
+
             int seaLevel = settings.SeaLevelLayer;
             int surfaceHeight = column.SurfaceHeight;
             if (surfaceHeight < seaLevel)
@@ -28,6 +34,16 @@ namespace Voxels.World.Generation
 
             BiomeDefinition biome = world.GetBiome(worldHex);
             if (!StructurePlacementPlanner.CanPlaceStructure(world, worldHex, biome, seed, settings))
+            {
+                return;
+            }
+
+            if (MultiHexStructurePlacer.TryPlaceStoneRuin(world, worldHex, settings, seed))
+            {
+                return;
+            }
+
+            if (MultiHexStructurePlacer.TryPlaceWandererCamp(world, worldHex, settings, seed))
             {
                 return;
             }
@@ -80,12 +96,25 @@ namespace Voxels.World.Generation
             CrystalSpire,
             CampSite,
             FungalRing,
+            StoneRuin,
+            WandererCamp,
         }
 
         static PoiKind ResolvePoiKind(BiomeDefinition biome, in HexCoord hex, uint seed)
         {
             string name = biome != null ? biome.name.ToLowerInvariant() : string.Empty;
             float variant = Hash01(hex, seed, 811);
+            float ruinRoll = Hash01(hex, seed, 1200);
+            if (ruinRoll < 0.02f * VoxelsModConfig.ResolvePoiWeight(name, "StoneRuin", 1f))
+            {
+                return PoiKind.StoneRuin;
+            }
+
+            float campRoll = Hash01(hex, seed, 1201);
+            if (campRoll < 0.025f * VoxelsModConfig.ResolvePoiWeight(name, "WandererCamp", 1f))
+            {
+                return PoiKind.WandererCamp;
+            }
 
             if (name.Contains("fungal") || name.Contains("swamp"))
             {

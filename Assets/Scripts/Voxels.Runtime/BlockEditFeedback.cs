@@ -1,4 +1,5 @@
 using UnityEngine;
+using Voxels.World;
 
 namespace Voxels.Runtime
 {
@@ -10,14 +11,16 @@ namespace Voxels.Runtime
         [SerializeField] AudioClip breakClip;
         [SerializeField] AudioClip placeClip;
 
-        public void PlayBreak(Vector3 worldPosition)
+        public void PlayBreak(Vector3 worldPosition, BlockDefinition block = null)
         {
             PlayEffect(breakParticles, breakClip, worldPosition);
+            GameplayAudioController.Instance?.PlayBlockBreak(block, worldPosition);
         }
 
-        public void PlayPlace(Vector3 worldPosition)
+        public void PlayPlace(Vector3 worldPosition, BlockDefinition block = null)
         {
             PlayEffect(placeParticles, placeClip, worldPosition);
+            GameplayAudioController.Instance?.PlayBlockPlace(block, worldPosition);
         }
 
         void PlayEffect(ParticleSystem particles, AudioClip clip, Vector3 worldPosition)

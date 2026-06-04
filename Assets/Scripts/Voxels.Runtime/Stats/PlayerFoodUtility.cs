@@ -1,5 +1,6 @@
 using Voxels.Core.Blocks;
 using Voxels.World;
+using Voxels.World.Modding;
 
 namespace Voxels.Runtime
 {
@@ -29,7 +30,27 @@ namespace Voxels.Runtime
                 return false;
             }
 
-            if (!registry.TryGetDefinition(blockId, out BlockDefinition definition) || !definition.IsEdible)
+            if (!registry.TryGetDefinition(blockId, out BlockDefinition definition))
+            {
+                return false;
+            }
+
+            float hunger = definition.HungerRestore;
+            float health = definition.HealthRestoreOnEat;
+            if (VoxelsModConfig.TryGetFoodOverride(definition.DisplayName, out float modHunger, out float modHealth))
+            {
+                if (modHunger > 0f)
+                {
+                    hunger = modHunger;
+                }
+
+                if (modHealth > 0f)
+                {
+                    health = modHealth;
+                }
+            }
+
+            if (hunger <= 0f && health <= 0f)
             {
                 feedback = "Can't eat that";
                 return false;
@@ -40,9 +61,9 @@ namespace Voxels.Runtime
                 return false;
             }
 
-            stats.Add(StatId.Hunger, definition.HungerRestore);
-            stats.Add(StatId.Health, definition.HealthRestoreOnEat);
-            feedback = $"Ate {definition.DisplayName} (+{definition.HungerRestore:0} food)";
+            stats.Add(StatId.Hunger, hunger);
+            stats.Add(StatId.Health, health);
+            feedback = $"Ate {definition.DisplayName} (+{hunger:0} food)";
             return true;
         }
     }

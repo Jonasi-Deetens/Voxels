@@ -66,3 +66,11 @@ Run in Unity 6 (`6000.4.x`) after pulling the branch. Play **SampleScene** with 
 - [ ] **E** eat uses block food values (Fungus, grasses)
 - [ ] Hold **Crystal** or **Ash** in hotbar for defense/mining bonus
 
+
+## World content (Lane B)
+- [ ] Stone ruins span 7 hexes (center pillar + ring) in crystal/grass biomes
+- [ ] Wanderer camps: fire core with ash/dirt tents on nearby hexes
+- [ ] Footsteps change tone on stone vs grass vs sand
+- [ ] Break/place blocks play material-aware SFX
+- [ ] Crystal/Core blocks glow; standing near them raises light level (F3) and reduces night spawns
+- [ ] Mod config: craft Crystal from 6 stone + 2 gravel (G); fungus hunger uses JSON override (+40)

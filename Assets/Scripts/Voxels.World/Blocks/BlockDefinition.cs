@@ -19,6 +19,10 @@ namespace Voxels.World
         [SerializeField] float hungerRestore;
         [SerializeField] float healthRestoreOnEat;
 
+        [Header("Light (reduces night spawns nearby)")]
+        [SerializeField] bool isEmissive;
+        [SerializeField, Range(0, 15)] int lightEmission;
+
         [Header("Held equipment (selected hotbar slot)")]
         [SerializeField] float heldDefensePercent;
         [SerializeField] float heldMiningMultiplier = 1f;
@@ -37,6 +41,9 @@ namespace Voxels.World
         public float HeldMiningMultiplier => heldMiningMultiplier;
 
         public bool IsEdible => hungerRestore > 0f;
+        public bool IsEmissive => isEmissive;
+        public int LightEmission => lightEmission;
+
         public bool HasHeldBonus => heldDefensePercent > 0f || heldMiningMultiplier > 1.01f;
     }
 }

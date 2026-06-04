@@ -185,7 +185,9 @@ namespace Voxels.Runtime
                 weatherAudio,
                 playerStats);
             nightSpawner.Initialize(worldScroller, settings, player);
-            dayNight.Initialize(celestialSystem, nightSpawner);
+            dayNight.Initialize(celestialSystem, nightSpawner, worldScroller);
+            GameplayAudioController gameplayAudio = GetOrAdd<GameplayAudioController>();
+            gameplayAudio.Initialize(worldScroller, playerController);
             craftingHud.Initialize(craftingSystem);
             settingsMenu.Initialize(settings, weatherSystem, skyClouds, skyController);
             weatherAudio.Initialize();

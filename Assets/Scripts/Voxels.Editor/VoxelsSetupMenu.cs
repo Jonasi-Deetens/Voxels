@@ -529,6 +529,10 @@ namespace Voxels.EditorTools
             blockObject.FindProperty("healthRestoreOnEat").floatValue = health;
             blockObject.FindProperty("heldDefensePercent").floatValue = defense;
             blockObject.FindProperty("heldMiningMultiplier").floatValue = mining;
+
+            bool emissive = displayName == "Crystal" || displayName == "Core";
+            blockObject.FindProperty("isEmissive").boolValue = emissive;
+            blockObject.FindProperty("lightEmission").intValue = displayName == "Crystal" ? 12 : displayName == "Core" ? 8 : 0;
         }
 
         static void EnsurePlayerStatsProfile()
