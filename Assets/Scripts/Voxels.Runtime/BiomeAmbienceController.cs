@@ -106,8 +106,6 @@ namespace Voxels.Runtime
         from.Stop();
       }
     }
-  }
-}
 
     public void ApplyWeatherVolume(float multiplier)
     {
@@ -122,3 +120,5 @@ namespace Voxels.Runtime
         ambientB.volume = (currentBiome != null ? currentBiome.AmbientVolume : 0.35f) * weatherVolumeMultiplier;
       }
     }
+  }
+}
