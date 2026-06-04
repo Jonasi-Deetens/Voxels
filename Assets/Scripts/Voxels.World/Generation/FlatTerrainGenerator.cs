@@ -3,7 +3,6 @@ using Unity.Mathematics;
 using Voxels.Core.Blocks;
 using Voxels.Core.Hex;
 using Voxels.World;
-using Voxels.World.Biomes;
 using Voxels.World.Climate;
 
 namespace Voxels.World.Generation
