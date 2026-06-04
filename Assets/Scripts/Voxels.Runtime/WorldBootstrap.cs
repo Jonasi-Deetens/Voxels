@@ -33,6 +33,13 @@ namespace Voxels.Runtime
         WeatherSystem weatherSystem;
         WeatherParticleController weatherParticles;
         BlockEditFeedback blockFeedback;
+        PlayerHealth playerHealth;
+        PlayerStatsController playerStats;
+        PlayerDeathHandler deathHandler;
+        WeatherAudioController weatherAudio;
+        CraftingHudView craftingHud;
+        GameSettingsMenuView settingsMenu;
+        [SerializeField] PlayerStatsProfile statsProfile;
         Transform worldRootTransform;
         bool buildComplete;
 
@@ -106,6 +113,9 @@ namespace Voxels.Runtime
             skyClouds = GetOrAdd<HexSkyCloudController>();
             weatherSystem = GetOrAdd<WeatherSystem>();
             weatherParticles = GetOrAdd<WeatherParticleController>();
+            weatherAudio = GetOrAdd<WeatherAudioController>();
+            craftingHud = GetOrAdd<CraftingHudView>();
+            settingsMenu = GetOrAdd<GameSettingsMenuView>();
             GetOrAdd<PlayerGameplayState>();
             PlayerInventory playerInventory = GetOrAdd<PlayerInventory>();
             WorldRegionLoader regionLoader = GetOrAdd<WorldRegionLoader>();
