@@ -2,9 +2,7 @@
   "name": "Voxels.Core.Tests",
   "rootNamespace": "Voxels.Core.Tests",
   "references": [
-    "Voxels.Core",
-    "UnityEngine.TestRunner",
-    "UnityEditor.TestRunner"
+    "Voxels.Core"
   ],
   "includePlatforms": [
     "Editor"
